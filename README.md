@@ -1,6 +1,6 @@
 # @metreeca/gear
 
-A lightweight TypeScript framework for data extraction and processing pipelines.
+Ready-made tasks and shared services for ETL jobs.
 
 **@metreeca/gear** is a collection of ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for retrieving
 remote or local sources and parsing the usual interchange formats, plus the job executor those tasks draw their shared

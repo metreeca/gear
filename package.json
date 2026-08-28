@@ -1,7 +1,7 @@
 {
   "private": true,
   "version": "0.1.0",
-  "description": "A lightweight TypeScript framework for data extraction and processing pipelines.",
+  "description": "Ready-made tasks and shared services for ETL jobs.",
   "keywords": [
     "typescript",
     "pipeline",
