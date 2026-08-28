@@ -45,7 +45,7 @@ async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await ( const item of items ) { collected.push(item) } // draining a stream has no functional equivalent
+	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
 
 	return collected;
 
@@ -77,7 +77,7 @@ describe("json", () => {
 	it("decodes multibyte characters split across byte chunks", async () => {
 
 		const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8")) + 1; // between the two bytes of à
+		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
 
 		const values = json<Item>()(chunks(bytes.subarray(0, cut), bytes.subarray(cut)));
 
@@ -90,7 +90,7 @@ describe("json", () => {
 	it("skips documents whose byte sequences are left truncated by a switch to text", async () => {
 
 		const bytes = Buffer.from(`{ "id": "1", "label": "città`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8")) + 1; // between the two bytes of à
+		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
 
 		// the withheld bytes are released at the end of the source rather than where the text resumes, so the
 		// replacement character trails the document rather than standing in for the truncated sequence
@@ -104,7 +104,7 @@ describe("json", () => {
 	it("decodes multibyte characters split across byte chunks resuming after text chunks", async () => {
 
 		const bytes = Buffer.from(`città" }`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8")) + 1; // between the two bytes of à
+		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
 
 		const values = json<Item>()(chunks(`{ "id": "1", "label": "`, bytes.subarray(0, cut), bytes.subarray(cut)));
 
@@ -181,11 +181,11 @@ describe("json", () => {
 
 			yield "[";
 
-			for ( const index of Array.from({ length: count }, (_, i) => i) ) { // generators have no functional equivalent
+			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
 
-				state.pulled=index+1;
+				state.pulled = index+1;
 
-				yield `${ index > 0 ? "," : "" }{"id":"${ index }","label":"label-${ index }"}`;
+				yield `${index > 0 ? "," : ""}{"id":"${index}","label":"label-${index}"}`;
 
 			}
 

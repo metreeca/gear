@@ -43,7 +43,7 @@ public final class Untag implements Function<Node, String> {
      * @param document the content of the X/HTML document
      *
      * @return the markdown-based plain text representation of {@code document} or the original {@code document}
-     * contents if unable to parse it as an X/HTML document
+     *         contents if unable to parse it as an X/HTML document
      *
      * @throws NullPointerException id {@code document } is {@code null}
      */
@@ -70,7 +70,7 @@ public final class Untag implements Function<Node, String> {
     }
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private static final class Builder {
 
@@ -92,8 +92,8 @@ public final class Untag implements Function<Node, String> {
         private Builder format(final Node node) {
             return node instanceof Document ? format((Document)node)
                     : node instanceof Element ? format((Element)node)
-                    : node instanceof Text ? format((Text)node)
-                    : this;
+                      : node instanceof Text ? format((Text)node)
+                        : this;
         }
 
         private Builder format(final Document document) {

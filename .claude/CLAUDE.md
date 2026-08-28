@@ -35,8 +35,8 @@ immediately under `packages/` (for example `packages/gear`).
 
 # Service Resolution
 
-Calls to `service()` are **NEVER** inlined into a larger expression: always bind the resolved instance to a `const` on
-a line of its own, then use it. This keeps the resolution point visible, since it depends on the enclosing execution
+Calls to `service()` are **NEVER** inlined into a larger expression: always bind the resolved instance to a `const` on a
+line of its own, then use it. This keeps the resolution point visible, since it depends on the enclosing execution
 rather than on the surrounding expression.
 
 ```typescript

@@ -45,7 +45,7 @@ async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await ( const item of items ) { collected.push(item) } // draining a stream has no functional equivalent
+	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
 
 	return collected;
 
@@ -64,17 +64,17 @@ function rows(count: number) {
 
 		try {
 
-			for ( const index of Array.from({ length: count }, (_, i) => i) ) { // generators have no functional equivalent
+			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
 
-				state.pulled=index+1;
+				state.pulled = index+1;
 
-				yield `${ index },label-${ index }\n`;
+				yield `${index},label-${index}\n`;
 
 			}
 
 		} finally {
 
-			state.closed=true;
+			state.closed = true;
 
 		}
 
@@ -112,7 +112,7 @@ describe("csv", () => {
 	it("decodes multibyte characters split across byte chunks", async () => {
 
 		const bytes = Buffer.from("id,label\n1,città\n", "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8")) + 1; // between the two bytes of à
+		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
 
 		const records = csv<Row>({ header: true })(chunks(bytes.subarray(0, cut), bytes.subarray(cut)));
 
@@ -235,7 +235,7 @@ describe("csv", () => {
 
 		await records.next();
 
-		expect(state.pulled).toBeLessThan(count / 2);
+		expect(state.pulled).toBeLessThan(count/2);
 
 	});
 

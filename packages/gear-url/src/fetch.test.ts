@@ -15,8 +15,8 @@
  */
 
 import type { Awaitable } from "@metreeca/core/async";
-import { createFetch, type Fetch, type Middleware } from "@metreeca/http";
 import { bind, executor } from "@metreeca/gear";
+import { createFetch, type Fetch, type Middleware } from "@metreeca/http";
 import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import { fetch } from "./fetch.js";
@@ -39,7 +39,7 @@ async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await ( const item of items ) { collected.push(item) } // draining a stream has no functional equivalent
+	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
 
 	return collected;
 
@@ -115,8 +115,8 @@ describe("fetch", () => {
 
 			const { stub } = transport(() => new Response(new ReadableStream({
 
-				pull(controller) { controller.enqueue(new TextEncoder().encode("chunk")) },
-				cancel() { state.cancelled=true } // recording an effect has no functional equivalent
+				pull(controller) { controller.enqueue(new TextEncoder().encode("chunk")); },
+				cancel() { state.cancelled = true; } // recording an effect has no functional equivalent
 
 			})));
 

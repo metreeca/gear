@@ -590,7 +590,7 @@ public final class XPath {
 
             return base == null ? link
                     : link.startsWith("?") ? base+link
-                    : base.resolve(link).normalize().toString();
+                      : base.resolve(link).normalize().toString();
 
         } catch ( final IllegalArgumentException e ) {
 
@@ -604,7 +604,7 @@ public final class XPath {
 
     @Override public boolean equals(final Object object) {
         return this == object || object instanceof XPath
-                                 && node.equals(((XPath)object).node);
+                && node.equals(((XPath)object).node);
     }
 
     @Override public int hashCode() {

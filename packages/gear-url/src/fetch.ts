@@ -22,11 +22,11 @@
  * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
  */
 
+import type { Task } from "@metreeca/flow";
 import { service } from "@metreeca/gear";
 import { createFetch, type Middleware } from "@metreeca/http";
 import { headers } from "@metreeca/http/headers";
 import { transport } from "@metreeca/http/transport";
-import type { Task } from "@metreeca/flow";
 
 
 /**

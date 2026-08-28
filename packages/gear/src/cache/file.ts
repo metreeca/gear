@@ -88,7 +88,7 @@ export function createFileCache({
 	readonly ttl?: number
 	readonly bytes?: number
 
-}={}): Bucket {
+} = {}): Bucket {
 
 	/**
 	 * A stored value, as reported by a scan of the cache folder.
@@ -145,7 +145,7 @@ export function createFileCache({
 			await mkdir(folder, { recursive: true });
 
 			const target = entry(key);
-			const staging = `${ target }.${ randomUUID() }`;
+			const staging = `${target}.${randomUUID()}`;
 
 			try {
 
@@ -235,7 +235,7 @@ export function createFileCache({
 
 	}
 
-	
+
 	async function scan(): Promise<readonly Entry[]> {
 
 		const names = await list();

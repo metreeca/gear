@@ -62,7 +62,7 @@ export function getPath(): string {
  */
 export function getPackage(path: string): string {
 
-	const base = path.	split(sep)
+	const base = path.split(sep)
 		.reduce(chain => [...chain, dirname(chain[chain.length-1])], [path])
 		.find(folder => existsSync(join(folder, Manifest)));
 

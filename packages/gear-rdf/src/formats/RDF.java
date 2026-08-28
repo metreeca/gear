@@ -71,7 +71,8 @@ public final class RDF implements Format<Model> {
      * @param <F>      the type of the file format services listed by the {@code registry}
      * @param <S>      the type of the file format service to be located
      *
-     * @return the located file format service or an empty optional if no service matches one of the given {@code types}
+     * @return the located file format service or an empty optional if no service matches one of the given
+     *         {@code types}
      *
      * @throws NullPointerException if any parameter is null
      */
@@ -111,7 +112,7 @@ public final class RDF implements Format<Model> {
 
                 .map(type -> type.equals("*/*") ? Optional.<F>empty()
                         : type.endsWith("/*") ? matcher.apply(type.substring(0, type.indexOf('/')+1))
-                        : registry.getFileFormatForMIMEType(type)
+                          : registry.getFileFormatForMIMEType(type)
                 )
 
                 .flatMap(Optional::stream)
@@ -321,7 +322,7 @@ public final class RDF implements Format<Model> {
     }
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private final Consumer<RioConfig> customizer;
 
@@ -350,7 +351,7 @@ public final class RDF implements Format<Model> {
     }
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override public Class<Model> type() {
         return Model.class;
@@ -366,9 +367,9 @@ public final class RDF implements Format<Model> {
 
     /**
      * @return the RDF payload decoded from the raw {@code message} {@linkplain Message#input()} taking into account the
-     * RDF serialization format defined by the  {@code "Content-Type"} {@code message} header or an empty optional if
-     * the {@code "Content-Type"} {@code message} is not empty and is not associated with an RDF format in the
-     * {@link RDFParserRegistry}
+     *         RDF serialization format defined by the  {@code "Content-Type"} {@code message} header or an empty
+     *         optional if the {@code "Content-Type"} {@code message} is not empty and is not associated with an RDF
+     *         format in the {@link RDFParserRegistry}
      */
     @Override public Optional<Model> decode(final Message<?> message) {
         return Optional.of(message.type(MIME))
@@ -399,9 +400,9 @@ public final class RDF implements Format<Model> {
 
     /**
      * @return the target {@code message} with its {@code "Content-Type"} header configured to {@value #MIME}, unless
-     * already defined, and its raw {@linkplain Message#output(Consumer) output} configured to return the RDF
-     * {@code value}, taking into account the RDF serialization selected according to the {@code "Accept"} header of the
-     * {@code message} originating request, defaulting to {@code text/turtle}
+     *         already defined, and its raw {@linkplain Message#output(Consumer) output} configured to return the RDF
+     *         {@code value}, taking into account the RDF serialization selected according to the {@code "Accept"}
+     *         header of the {@code message} originating request, defaulting to {@code text/turtle}
      */
     @Override public <M extends Message<M>> M encode(final M message, final Model value) {
 

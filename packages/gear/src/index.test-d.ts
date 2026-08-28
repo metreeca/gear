@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { describe, expectTypeOf, it } from "vitest";
-import { bind, executor, service } from "./index.js";
 import type { Defined } from "@metreeca/core";
+import { describe, expectTypeOf, it } from "vitest";
 import type { Binding } from "./index.js";
+import { bind, executor, service } from "./index.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

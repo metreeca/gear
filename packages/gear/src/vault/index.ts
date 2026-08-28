@@ -27,8 +27,8 @@
  * Ready-made vaults to be {@link index.bind bound} to {@link createVault} in place of the default one.
  */
 
-import { createEnvVault } from "./env.js";
 import { Awaitable } from "@metreeca/core/async";
+import { createEnvVault } from "./env.js";
 
 
 /**
@@ -51,7 +51,7 @@ export type Vault = {
 	 * @throws {Error} If no parameter is identified by `key`; vaults resolving lookups asynchronously report the
 	 *                 failure as a rejected promise
 	 */
-	(key: string) : Awaitable<string>
+	(key: string): Awaitable<string>
 
 }
 
@@ -65,7 +65,7 @@ export type Vault = {
  */
 export function createVault(): Vault {
 
-	return createEnvVault()
+	return createEnvVault();
 
 }
 

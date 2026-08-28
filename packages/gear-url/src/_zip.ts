@@ -15,8 +15,6 @@
  */
 
 
-
-
 import type { Fetch } from "../index.js";
 
 /**

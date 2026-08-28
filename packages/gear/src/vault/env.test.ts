@@ -66,7 +66,7 @@ describe("createEnvVault", () => {
 
 	it("looks keys up under the prefix", async () => {
 
-		vi.stubEnv(`${ Prefix }PARAMETER`, "secret");
+		vi.stubEnv(`${Prefix}PARAMETER`, "secret");
 
 		expect(await createEnvVault(Prefix)("PARAMETER")).toBe("secret");
 

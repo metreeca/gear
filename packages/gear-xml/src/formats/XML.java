@@ -113,7 +113,7 @@ public final class XML implements Format<Document> {
      * @return either a parsing exception or the XML document parsed from {@code input}
      *
      * @throws NullPointerException if {@code input} is null
-     * @throws FormatException       if {@code input} contains a malformed document
+     * @throws FormatException      if {@code input} contains a malformed document
      */
     public static Document xml(final InputStream input, final String base) throws FormatException {
 
@@ -137,7 +137,7 @@ public final class XML implements Format<Document> {
      * @return either a parsing exception or the XML document parsed from {@code source}
      *
      * @throws NullPointerException if {@code source} is null
-     * @throws FormatException       if {@code source} contains a malformed document
+     * @throws FormatException      if {@code source} contains a malformed document
      */
     public static Document xml(final Source source) throws FormatException {
 
@@ -163,7 +163,7 @@ public final class XML implements Format<Document> {
     }
 
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private final XMLReader parser;
 
@@ -208,45 +208,45 @@ public final class XML implements Format<Document> {
 
     /**
      * @return the XML payload decoded from the raw {@code message} {@linkplain Message#input()} taking into account the
-     * {@code message} {@linkplain Message#charset() charset} or an empty optional if the {@code "Content-Type"} {@code
-     * message} header is not empty and is not matched by {@link #MIMEPattern}
+     *         {@code message} {@linkplain Message#charset() charset} or an empty optional if the {@code "Content-Type"}
+     *         {@code message} header is not empty and is not matched by {@link #MIMEPattern}
      */
     @Override public Optional<Document> decode(final Message<?> message) {
         return Optional.of(message.type(MIME)).filter(MIMEPattern.asPredicate()).map(type -> {
 
-                    try ( final InputStream input=message.input().get() ) {
+            try ( final InputStream input=message.input().get() ) {
 
-                        final InputSource inputSource=new InputSource();
+                final InputSource inputSource=new InputSource();
 
-                        inputSource.setSystemId(message.item());
-                        inputSource.setByteStream(input);
-                        inputSource.setEncoding(message.charset().name());
+                inputSource.setSystemId(message.item());
+                inputSource.setByteStream(input);
+                inputSource.setEncoding(message.charset().name());
 
-                        final SAXSource saxSource=(parser != null)
-                                ? new SAXSource(parser, inputSource)
-                                : new SAXSource(inputSource);
+                final SAXSource saxSource=(parser != null)
+                        ? new SAXSource(parser, inputSource)
+                        : new SAXSource(inputSource);
 
-                        saxSource.setSystemId(message.item());
+                saxSource.setSystemId(message.item());
 
-                        return xml(saxSource);
+                return xml(saxSource);
 
-                    } catch ( final UnsupportedEncodingException e ) {
+            } catch ( final UnsupportedEncodingException e ) {
 
-                        throw new FormatException(BAD_REQUEST, e.getMessage());
+                throw new FormatException(BAD_REQUEST, e.getMessage());
 
-                    } catch ( final IOException e ) {
+            } catch ( final IOException e ) {
 
-                        throw new UncheckedIOException(e);
+                throw new UncheckedIOException(e);
 
-                    }
+            }
 
-                });
+        });
     }
 
     /**
      * @return the target {@code message} with its {@code "Content-Type"} header configured to {@value #MIME}, unless
-     * already defined, and its raw {@linkplain Message#output(Consumer) output} configured to return the XML
-     * {@code value}
+     *         already defined, and its raw {@linkplain Message#output(Consumer) output} configured to return the XML
+     *         {@code value}
      */
     @Override public <M extends Message<M>> M encode(final M message, final Document value) {
         return message

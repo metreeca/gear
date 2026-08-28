@@ -33,7 +33,6 @@ class ServiceError extends Error {}
 class DisposeError extends Error {}
 
 
-
 function createStore(): Store {
 	return { label: "default" };
 }
@@ -72,10 +71,8 @@ describe("executor", () => {
 	it("rejects repeated bindings for the same service", async () => {
 
 		expect(() => executor(
-
 			bind(createStore, createMemoryStore),
 			bind(createStore, createTestStore)
-
 		)).toThrow();
 
 	});

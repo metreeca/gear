@@ -2,16 +2,17 @@
 
 ## Native support
 
-None. Node's standard library has no DOM and no `document.evaluate`. XPath always needs a third-party parser plus a query engine.
+None. Node's standard library has no DOM and no `document.evaluate`. XPath always needs a third-party parser plus a
+query engine.
 
 ## The stack
 
-| Package | Role | Licence | Notes |
-|---|---|---|---|
-| `xpath` | XPath 1.0 engine | MIT | Pure JS, no build step, works against any xmldom-style document |
-| `@xmldom/xmldom` | XML parser / DOM | MIT | Older unscoped `xmldom` was dual MIT/LGPL; the scoped fork is MIT |
-| `parse5` | HTML5 parser | MIT | Zero runtime deps, same tree builder jsdom uses internally |
-| `parse5-parser-stream` | Streaming parser | MIT | Optional, only for the streaming path |
+| Package                | Role             | Licence | Notes                                                             |
+|------------------------|------------------|---------|-------------------------------------------------------------------|
+| `xpath`                | XPath 1.0 engine | MIT     | Pure JS, no build step, works against any xmldom-style document   |
+| `@xmldom/xmldom`       | XML parser / DOM | MIT     | Older unscoped `xmldom` was dual MIT/LGPL; the scoped fork is MIT |
+| `parse5`               | HTML5 parser     | MIT     | Zero runtime deps, same tree builder jsdom uses internally        |
+| `parse5-parser-stream` | Streaming parser | MIT     | Optional, only for the streaming path                             |
 
 ## xmldom on its own
 
@@ -54,7 +55,8 @@ On real-world pages this means XPath that looks correct silently misses nodes.
 
 ## parse5 in front of xmldom
 
-Fixes the parsing gap while keeping the small footprint. Use a custom `treeAdapter` so parse5 builds xmldom nodes directly, with no serialise-and-reparse round trip.
+Fixes the parsing gap while keeping the small footprint. Use a custom `treeAdapter` so parse5 builds xmldom nodes
+directly, with no serialise-and-reparse round trip.
 
 ```bash
 npm i xpath @xmldom/xmldom parse5 parse5-parser-stream
@@ -182,10 +184,15 @@ xpath.select1('//meta[@property="og:title"]/@content', parser.document)?.value;
 
 ### Gotchas
 
-1. `getNamespaceURI` must undo whatever `createElement` did to the namespace. parse5 uses it to decide foreign-content handling, so if HTML elements report `null` there the tokeniser misbehaves inside SVG and MathML. `stripHtmlNs: false` avoids the trick, but then every query needs `xpath.useNamespaces({ h: HTML_NS })` and prefixed steps.
+1. `getNamespaceURI` must undo whatever `createElement` did to the namespace. parse5 uses it to decide foreign-content
+   handling, so if HTML elements report `null` there the tokeniser misbehaves inside SVG and MathML.
+   `stripHtmlNs: false` avoids the trick, but then every query needs `xpath.useNamespaces({ h: HTML_NS })` and prefixed
+   steps.
 2. `getChildNodes` returns a fresh array deliberately. xmldom's live NodeList has no `indexOf`, which parse5 relies on.
-3. The interface is versioned: `updateNodeSourceCodeLocation` was a breaking addition, and v7 went ESM-only and TypeScript. Pin the major.
-4. `parse5-sax-parser` is the wrong tool, as it skips tree construction, which is the only reason to bring parse5 in. Streaming does not make the tree queryable early either; wait for `finish` before running XPath.
+3. The interface is versioned: `updateNodeSourceCodeLocation` was a breaking addition, and v7 went ESM-only and
+   TypeScript. Pin the major.
+4. `parse5-sax-parser` is the wrong tool, as it skips tree construction, which is the only reason to bring parse5 in.
+   Streaming does not make the tree queryable early either; wait for `finish` before running XPath.
 
 ## Links
 
@@ -197,4 +204,5 @@ xpath.select1('//meta[@property="og:title"]/@content', parser.document)?.value;
 - https://www.npmjs.com/package/xpath
 - https://www.npmjs.com/package/@xmldom/xmldom
 
-Everything above is MIT, so no copyleft obligations. Still worth running a licence checker over the actual lockfile, since transitive deps are what usually catch people out.
+Everything above is MIT, so no copyleft obligations. Still worth running a licence checker over the actual lockfile,
+since transitive deps are what usually catch people out.

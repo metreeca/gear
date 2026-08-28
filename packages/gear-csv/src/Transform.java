@@ -97,8 +97,10 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
      * Retrieves a normalized string value from a CSV record column.
      *
      * @param record the CSV record
-     * @param label the column header label
+     * @param label  the column header label
+     *
      * @return the normalized value if present and non-empty
+     *
      * @throws NullPointerException if either record or label is {@code null}
      */
     protected Optional<String> value(final CSVRecord record, final String label) {
@@ -111,8 +113,10 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
      * Retrieves multiple normalized string values from a semicolon-separated CSV column.
      *
      * @param record the CSV record
-     * @param label the column header label
+     * @param label  the column header label
+     *
      * @return a stream of normalized values split by semicolon
+     *
      * @throws NullPointerException if either record or label is {@code null}
      */
     protected Stream<String> values(final CSVRecord record, final String label) {
@@ -124,11 +128,13 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
     /**
      * Retrieves a parsed value from a CSV record column.
      *
-     * @param <R> the target type
+     * @param <R>    the target type
      * @param record the CSV record
-     * @param label the column header label
+     * @param label  the column header label
      * @param parser the parsing function
+     *
      * @return the parsed value if present and valid
+     *
      * @throws NullPointerException if any of record, label, or parser is {@code null}
      */
     protected <R> Optional<R> value(final CSVRecord record, final String label,
@@ -148,11 +154,13 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
     /**
      * Retrieves multiple parsed values from a semicolon-separated CSV column.
      *
-     * @param <R> the target type
+     * @param <R>    the target type
      * @param record the CSV record
-     * @param label the column header label
+     * @param label  the column header label
      * @param parser the parsing function
+     *
      * @return a stream of parsed values
+     *
      * @throws NullPointerException if any of record, label, or parser is {@code null}
      */
     protected <R> Stream<R> values(final CSVRecord record, final String label,
@@ -180,8 +188,9 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
     /**
      * Logs a warning message for a specific CSV record.
      *
-     * @param record the CSV record
+     * @param record  the CSV record
      * @param message the warning message
+     *
      * @throws NullPointerException if either record or message is {@code null}
      */
     protected void warning(final CSVRecord record, final String message) {
@@ -192,6 +201,7 @@ public abstract class Transform<V> implements Function<String, Stream<V>> {
      * Logs a warning message.
      *
      * @param message the warning message
+     *
      * @throws NullPointerException if message is {@code null}
      */
     protected void warning(final String message) {

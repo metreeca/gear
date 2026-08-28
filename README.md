@@ -2,9 +2,9 @@
 
 A lightweight TypeScript framework for data extraction and processing pipelines.
 
-**@metreeca/gear** is a collection of ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for
-retrieving remote or local sources and parsing the usual interchange formats, plus the job executor those tasks draw
-their shared services from. Key features include:
+**@metreeca/gear** is a collection of ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for retrieving
+remote or local sources and parsing the usual interchange formats, plus the job executor those tasks draw their shared
+services from. Key features include:
 
 - **Ready-Made Tasks**: retrieval and parsing tasks chaining into a pipe alongside any other task
 - **Shared Services**: facilities covering the surroundings a run works against, such as its working space
@@ -64,8 +64,8 @@ leaf packages: each pulls in the core package transitively and only the librarie
 > Each package documents its own API in its README and API reference; for complete coverage, see the
 > [API reference](https://metreeca.github.io/gear/).
 
-A job binds the services it relies on, then drives a [@metreeca/flow](https://github.com/metreeca/flow) feed through
-the tasks provided by the input packages:
+A job binds the services it relies on, then drives a [@metreeca/flow](https://github.com/metreeca/flow) feed through the
+tasks provided by the input packages:
 
 ```ts
 import { bind, executor, service } from "@metreeca/gear";
