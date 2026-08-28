@@ -7,10 +7,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/commits/main)
 
-### Changed
+## [0.1.1](https://github.com/metreeca/gear/compare/v0.1.0...v0.1.1) - 2026-08-28
 
-- `executor` now collects a job failure and the disposal failures that follow it into an `AggregateError`, in the order
-  they were raised, rather than into nested `SuppressedError`s, restoring support for the declared Node.js 22 baseline
+### Fixed
+
+- `executor` no longer fails on the declared Node.js 22 baseline when a job error meets a disposal error: the failures
+  are now collected into an `AggregateError`, in the order they were raised, rather than into `SuppressedError`s, which
+  that runtime does not provide
 
 ## [0.1.0](https://github.com/metreeca/gear/releases/tag/v0.1.0) - 2026-08-28
 
