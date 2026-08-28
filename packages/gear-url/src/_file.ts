@@ -18,7 +18,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import type { Fetch } from "../index.js";
+import type { Fetch } from "@metreeca/http";
 
 /**
  * Creates a `file` protocol handler.

@@ -15,7 +15,7 @@
  */
 
 
-import type { Fetch } from "../index.js";
+import type { Fetch } from "@metreeca/http";
 
 /**
  * Entry extraction function.
