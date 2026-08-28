@@ -1,0 +1,70 @@
+{
+  "name": "@metreeca/flow",
+  "version": "0.1.0",
+  "description": "Job execution runtime and shared services for @metreeca/flow.",
+  "keywords": [
+    "typescript",
+    "pipeline",
+    "etl",
+    "extraction"
+  ],
+  "homepage": "https://metreeca.github.io/flow/",
+  "bugs": {
+    "url": "https://github.com/metreeca/flow/issues",
+    "email": "info@metreeca.com"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Metreeca",
+    "email": "info@metreeca.com",
+    "url": "https://www.metreeca.com/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metreeca/flow.git",
+    "directory": "packages/flow"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@metreeca/source": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./space": {
+      "@metreeca/source": "./src/space/index.ts",
+      "default": "./dist/space/index.js"
+    },
+    "./vault": {
+      "@metreeca/source": "./src/vault/index.ts",
+      "default": "./dist/vault/index.js"
+    },
+    "./cache": {
+      "@metreeca/source": "./src/cache/index.ts",
+      "default": "./dist/cache/index.js"
+    }
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "clean": "rm -rf dist docs node_modules",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check": "npx vitest --typecheck run"
+  },
+  "dependencies": {
+    "@metreeca/core": "^0.9.19",
+    "@metreeca/pipe": "^0.9.20",
+    "@metreeca/tape": "^0.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.13"
+  }
+}
