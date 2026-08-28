@@ -43,6 +43,8 @@ leaf packages: each pulls in the core package transitively and only the librarie
 
 [@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
 
+[@metreeca/gear-url]: https://metreeca.github.io/gear/modules/_metreeca_gear-url.html
+
 [@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
 
 # Usage
