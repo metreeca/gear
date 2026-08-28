@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Job execution runtime and shared services for @metreeca/gear.",
   "keywords": [
     "typescript",

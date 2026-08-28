@@ -10,11 +10,9 @@
       "*": "https://metreeca.github.io/tape/"
     },
     "typescript": {
+      "AggregateError": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AggregateError",
       "AsyncDisposable": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol/asyncDispose",
-      "Disposable": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol/dispose",
-      "Request": "https://developer.mozilla.org/docs/Web/API/Request",
-      "SuppressedError": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError",
-      "URL": "https://developer.mozilla.org/docs/Web/API/URL"
+      "Disposable": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol/dispose"
     }
   }
 }
