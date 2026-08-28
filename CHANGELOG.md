@@ -7,7 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/commits/main)
 
-### Added
+## [0.1.0](https://github.com/metreeca/gear/releases/tag/v0.1.0) - 2026-08-28
+
+Initial release of the ETL job framework: ready-made tasks for retrieving remote or local sources and parsing the usual
+interchange formats, plus the job executor those tasks draw their shared services from. Task packages are self-contained
+leaves, each pulling in the core package transitively and only the libraries its own input type needs.
 
 - `@metreeca/gear` — job execution runtime and shared services, exposing the executor and the `space`, `vault` and
   `cache` service modules
