@@ -77,7 +77,7 @@ const locators = new AsyncLocalStorage<<T extends Defined>(service: Service<T>) 
  * > instances implementing neither are left as they are, which is not an error. Disposal runs outside the execution,
  * > so a disposer resolving a service is rejected rather than constructing an instance nothing would dispose. Every
  * > disposer is run even if an earlier one failed: if the job and a disposal both fail, or several disposals fail, the
- * > errors are composed as nested {@link SuppressedError}s, as `await using` would compose them.
+ * > errors are collected into an {@link AggregateError}, in the order they were raised.
  *
  * @see {@link https://tc39.es/proposal-explicit-resource-management/ ECMAScript Explicit Resource Management}
  */
@@ -249,7 +249,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 			const failure = await release();
 
-			throw failure === undefined ? error : new SuppressedError(failure, error);
+			throw failure === undefined ? error : new AggregateError([ error, failure ], "execution failed");
 
 		}
 
@@ -272,7 +272,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 				} catch ( error ) {
 
-					return suppressed === undefined ? error : new SuppressedError(error, suppressed);
+					return suppressed === undefined ? error : new AggregateError([ suppressed, error ], "disposal failed");
 
 				}
 

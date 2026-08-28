@@ -208,9 +208,31 @@ describe("executor", () => {
 
 		}).catch(reason => reason);
 
-		expect(error).toBeInstanceOf(SuppressedError);
-		expect(error.error).toBeInstanceOf(DisposeError);
-		expect(error.suppressed).toBeInstanceOf(ExecutableError);
+		expect(error).toBeInstanceOf(AggregateError);
+		expect(error.errors[0]).toBeInstanceOf(ExecutableError);
+		expect(error.errors[1]).toBeInstanceOf(DisposeError);
+
+	});
+
+	it("composes multiple disposal errors", async () => {
+
+		const createFirst = (): AsyncDisposable => ({
+			[Symbol.asyncDispose]: () => { throw new DisposeError("first"); }
+		});
+
+		const createSecond = (): AsyncDisposable => ({
+			[Symbol.asyncDispose]: () => { throw new DisposeError("second"); }
+		});
+
+		const error = await executor()(() => {
+
+			service(createFirst);
+			service(createSecond);
+
+		}).catch(reason => reason);
+
+		expect(error).toBeInstanceOf(AggregateError);
+		expect(error.errors.map(({ message }: Error) => message)).toEqual([ "second", "first" ]);
 
 	});
 

@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/commits/main)
 
+### Changed
+
+- `executor` now collects a job failure and the disposal failures that follow it into an `AggregateError`, in the order
+  they were raised, rather than into nested `SuppressedError`s, restoring support for the declared Node.js 22 baseline
+
 ## [0.1.0](https://github.com/metreeca/gear/releases/tag/v0.1.0) - 2026-08-28
 
 Initial release of the ETL job framework: ready-made tasks for retrieving remote or local sources and parsing the usual
