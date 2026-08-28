@@ -11,13 +11,13 @@
 
 # Overview
 
-`@metreeca/flow` is a standalone, general-purpose monorepo collecting the data extraction and processing pipeline
-framework core and its extension packages, each sitting directly under `packages/` (for example `packages/flow/`).
+`@metreeca/gear` is a standalone, general-purpose monorepo collecting the data extraction and processing pipeline
+framework core and its extension packages, each sitting directly under `packages/` (for example `packages/gear/`).
 
 # References
 
 - [@metreeca/core](https://github.com/metreeca/core) - Core utilities and shared types
-- [@metreeca/pipe](https://github.com/metreeca/pipe) - Composable async iterable processing
+- [@metreeca/flow](https://github.com/metreeca/flow) - Composable async iterable processing
 - [@metreeca/tape](https://github.com/metreeca/tape) - Simplified facade for the LogTape logging framework
 
 # NPM Scripts
@@ -31,7 +31,7 @@ framework core and its extension packages, each sitting directly under `packages
 # Package Layout
 
 The root `package.json` `workspaces` glob (`packages/*`) covers the framework packages, each in its own directory
-immediately under `packages/` (for example `packages/flow`).
+immediately under `packages/` (for example `packages/gear`).
 
 # Service Resolution
 
@@ -48,8 +48,8 @@ const parameters = lazy(async () => parseEnv(await readFile(resolve(service(getP
 
 # Testing
 
-The root `vitest.config.ts` aliases all workspace `@metreeca/flow*` packages to their TypeScript source via regex, so
-vitest transpiles directly from `src/` without requiring a prior build step. The resolver maps each `@metreeca/flow*`
+The root `vitest.config.ts` aliases all workspace `@metreeca/gear*` packages to their TypeScript source via regex, so
+vitest transpiles directly from `src/` without requiring a prior build step. The resolver maps each `@metreeca/gear*`
 specifier to `packages/<package>/src`; the aliases are convention-based and require no manual updates when adding
 packages or subpath exports.
 
@@ -65,7 +65,7 @@ files by name) still hold.
 
 All workspace packages share the same version, defined in the root `package.json` `version` field. When bumping the
 version, cascade the change to all `packages/**/package.json` — both the package `version` field and any internal
-`@metreeca/flow*` dependency ranges.
+`@metreeca/gear*` dependency ranges.
 
 When adding, removing, or renaming packages, update the package table in the root `README.md` Usage section to match.
 

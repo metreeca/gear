@@ -38,14 +38,14 @@ export default defineConfig({
 
 	plugins: [{
 
-		name: "flow-resolver",
+		name: "gear-resolver",
 		enforce: "pre",
 
 		/**
-		 * Resolves `@metreeca/flow*` workspace imports to TypeScript source for build-free testing.
+		 * Resolves `@metreeca/gear*` workspace imports to TypeScript source for build-free testing.
 		 *
-		 * - `@metreeca/flow-pkg` → `packages/flow-pkg/src/index.ts`
-		 * - `@metreeca/flow-pkg/module` → `packages/flow-pkg/src/module.ts` or `packages/flow-pkg/src/module/index.ts`
+		 * - `@metreeca/gear-pkg` → `packages/gear-pkg/src/index.ts`
+		 * - `@metreeca/gear-pkg/module` → `packages/gear-pkg/src/module.ts` or `packages/gear-pkg/src/module/index.ts`
 		 *
 		 * @param id - The module specifier to resolve
 		 *
@@ -53,7 +53,7 @@ export default defineConfig({
 		 */
 		resolveId(id: string) {
 
-			const bare = id.match(/^@metreeca\/(flow[^/]*)$/);
+			const bare = id.match(/^@metreeca\/(gear[^/]*)$/);
 
 			if ( bare ) { // bare package import
 
@@ -63,7 +63,7 @@ export default defineConfig({
 
 			} else { // subpath import
 
-				const module = id.match(/^@metreeca\/(flow[^/]*)\/(.+)$/);
+				const module = id.match(/^@metreeca\/(gear[^/]*)\/(.+)$/);
 
 				if ( module ) {
 

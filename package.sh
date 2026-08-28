@@ -17,4 +17,4 @@
 npx link \
   ../Core \
   ../Tape\
-  ../Pipe
+  ../Flow

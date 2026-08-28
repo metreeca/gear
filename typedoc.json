@@ -3,16 +3,16 @@
     "packages/*"
   ],
   "entryPointStrategy": "packages",
-  "name": "Metreeca Flow",
+  "name": "Metreeca Gear",
   "out": "docs",
   "readme": "README.md",
-  "hostedBaseUrl": "https://metreeca.github.io/flow/",
+  "hostedBaseUrl": "https://metreeca.github.io/gear/",
   "useFirstParagraphOfCommentAsSummary": true,
   "favicon": "https://metreeca.com/assets/icon.ico",
   "sourceLinkExternal": true,
   "markdownLinkExternal": true,
   "navigationLinks": {
-    "GitHub": "https://github.com/metreeca/flow"
+    "GitHub": "https://github.com/metreeca/gear"
   },
   "githubPages": false,
   "hideGenerator": true,

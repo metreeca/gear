@@ -1,8 +1,8 @@
-# @metreeca/flow
+# @metreeca/gear
 
 A lightweight TypeScript framework for data extraction and processing pipelines.
 
-**@metreeca/flow** is a collection of ready-made [@metreeca/pipe](https://github.com/metreeca/pipe) tasks for
+**@metreeca/gear** is a collection of ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for
 retrieving remote or local sources and parsing the usual interchange formats, plus the job executor those tasks draw
 their shared services from. Key features include:
 
@@ -21,8 +21,8 @@ their shared services from. Key features include:
 # Installation
 
 ```shell
-npm install @metreeca/flow           # job execution runtime and shared services
-npm install @metreeca/flow-<type>    # task packages, among those listed above
+npm install @metreeca/gear           # job execution runtime and shared services
+npm install @metreeca/gear-<type>    # task packages, among those listed above
 ```
 
 > [!WARNING]
@@ -35,46 +35,46 @@ leaf packages: each pulls in the core package transitively and only the librarie
 
 | Package                            | Description                               |
 |------------------------------------|-------------------------------------------|
-| [@metreeca/flow]                   | Job execution runtime and shared services |
-| [@metreeca/flow-url]               | URL processing tasks                      |
-| [@metreeca/flow-json] (*upcoming*) | JSON processing tasks                     |
-| [@metreeca/flow-xml]  (*upcoming*) | XML and HTML processing tasks             |
-| [@metreeca/flow-csv]               | CSV processing tasks                      |
-| [@metreeca/flow-rdf]  (*upcoming*) | RDF processing tasks                      |
-| [@metreeca/flow-ical] (*upcoming*) | iCalendar processing tasks                |
+| [@metreeca/gear]                   | Job execution runtime and shared services |
+| [@metreeca/gear-url]               | URL processing tasks                      |
+| [@metreeca/gear-json] (*upcoming*) | JSON processing tasks                     |
+| [@metreeca/gear-xml]  (*upcoming*) | XML and HTML processing tasks             |
+| [@metreeca/gear-csv]               | CSV processing tasks                      |
+| [@metreeca/gear-rdf]  (*upcoming*) | RDF processing tasks                      |
+| [@metreeca/gear-ical] (*upcoming*) | iCalendar processing tasks                |
 
-[@metreeca/flow]: https://metreeca.github.io/flow/modules/_metreeca_flow.html
+[@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
 
-[@metreeca/flow-csv]: https://metreeca.github.io/flow/modules/_metreeca_flow-csv.html
+[@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
 
-[@metreeca/flow-ical]: https://metreeca.github.io/flow/modules/_metreeca_flow-ical.html
+[@metreeca/gear-ical]: https://metreeca.github.io/gear/modules/_metreeca_gear-ical.html
 
-[@metreeca/flow-json]: https://metreeca.github.io/flow/modules/_metreeca_flow-json.html
+[@metreeca/gear-json]: https://metreeca.github.io/gear/modules/_metreeca_gear-json.html
 
-[@metreeca/flow-rdf]: https://metreeca.github.io/flow/modules/_metreeca_flow-rdf.html
+[@metreeca/gear-rdf]: https://metreeca.github.io/gear/modules/_metreeca_gear-rdf.html
 
-[@metreeca/flow-url]: https://metreeca.github.io/flow/modules/_metreeca_flow-url.html
+[@metreeca/gear-url]: https://metreeca.github.io/gear/modules/_metreeca_gear-url.html
 
-[@metreeca/flow-xml]: https://metreeca.github.io/flow/modules/_metreeca_flow-xml.html
+[@metreeca/gear-xml]: https://metreeca.github.io/gear/modules/_metreeca_gear-xml.html
 
 # Usage
 
 > [!NOTE]
 >
 > Each package documents its own API in its README and API reference; for complete coverage, see the
-> [API reference](https://metreeca.github.io/flow/).
+> [API reference](https://metreeca.github.io/gear/).
 
-A job binds the services it relies on, then drives a [@metreeca/pipe](https://github.com/metreeca/pipe) feed through
+A job binds the services it relies on, then drives a [@metreeca/flow](https://github.com/metreeca/flow) feed through
 the tasks provided by the input packages:
 
 ```ts
-import { bind, executor, service } from "@metreeca/flow";
-import { createDotVault, createVault } from "@metreeca/flow/vault";
-import { csv } from "@metreeca/flow-csv";
-import { fetch } from "@metreeca/flow-url";
-import { pipe } from "@metreeca/pipe";
-import { feed } from "@metreeca/pipe/feeds";
-import { forEach } from "@metreeca/pipe/sinks";
+import { bind, executor, service } from "@metreeca/gear";
+import { createDotVault, createVault } from "@metreeca/gear/vault";
+import { csv } from "@metreeca/gear-csv";
+import { fetch } from "@metreeca/gear-url";
+import { pipe } from "@metreeca/flow";
+import { feed } from "@metreeca/flow/feeds";
+import { forEach } from "@metreeca/flow/sinks";
 
 await executor(
 
@@ -92,10 +92,10 @@ await executor(
 
 # Support
 
-- open an [issue](https://github.com/metreeca/flow/issues) to report a problem or to suggest a new feature
-- start a [discussion](https://github.com/metreeca/flow/discussions) to ask a how-to question or to share an idea
+- open an [issue](https://github.com/metreeca/gear/issues) to report a problem or to suggest a new feature
+- start a [discussion](https://github.com/metreeca/gear/discussions) to ask a how-to question or to share an idea
 
 # License
 
 This project is licensed under the Apache 2.0 License –
-see [LICENSE](https://github.com/metreeca/flow?tab=Apache-2.0-1-ov-file) file for details.
+see [LICENSE](https://github.com/metreeca/gear?tab=Apache-2.0-1-ov-file) file for details.
