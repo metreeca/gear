@@ -47,10 +47,10 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/core": "^0.9.19",
+    "@metreeca/core": "^0.9.21",
     "@metreeca/gear": "^0.1.0",
     "@metreeca/http": "^0.1.0",
-    "@metreeca/flow": "^0.9.20",
+    "@metreeca/flow": "^0.9.21",
     "@metreeca/tape": "^0.9.1"
   },
   "devDependencies": {

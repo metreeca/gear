@@ -47,7 +47,7 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/flow": "^0.9.20",
+    "@metreeca/flow": "^0.9.21",
     "@metreeca/tape": "^0.9.1",
     "csv-parse": "^7.0.2"
   },
