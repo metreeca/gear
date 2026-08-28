@@ -1,0 +1,31 @@
+{
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ready-made tasks and shared services for ETL jobs.",
+  "keywords": [
+    "typescript",
+    "pipeline",
+    "etl",
+    "extraction"
+  ],
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "clean": "npm run clean --workspaces && rm -rf dist docs node_modules",
+    "setup": "npm install",
+    "build": "npm run build --workspaces && rm -rf docs && npx typedoc",
+    "check": "npm run check --workspaces",
+    "proof": "npm run build && npx five-server docs --open --watch=false"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "five-server": "^0.4.5",
+    "typedoc": "^0.28.18",
+    "vitest": "^4.0.13"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
+  }
+}

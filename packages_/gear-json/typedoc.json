@@ -1,0 +1,13 @@
+{
+  "externalSymbolLinkMappings": {
+    "@metreeca/core": {
+      "*": "https://metreeca.github.io/core/"
+    },
+    "@metreeca/flow": {
+      "*": "https://metreeca.github.io/flow/"
+    },
+    "@metreeca/tape": {
+      "*": "https://metreeca.github.io/tape/"
+    }
+  }
+}

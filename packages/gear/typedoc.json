@@ -1,0 +1,20 @@
+{
+  "externalSymbolLinkMappings": {
+    "@metreeca/core": {
+      "*": "https://metreeca.github.io/core/"
+    },
+    "@metreeca/flow": {
+      "*": "https://metreeca.github.io/flow/"
+    },
+    "@metreeca/tape": {
+      "*": "https://metreeca.github.io/tape/"
+    },
+    "typescript": {
+      "AsyncDisposable": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol/asyncDispose",
+      "Disposable": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Symbol/dispose",
+      "Request": "https://developer.mozilla.org/docs/Web/API/Request",
+      "SuppressedError": "https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SuppressedError",
+      "URL": "https://developer.mozilla.org/docs/Web/API/URL"
+    }
+  }
+}

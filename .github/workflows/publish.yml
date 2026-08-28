@@ -45,7 +45,7 @@ jobs:
       - name: Publish
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          LATEST=$(npm view @metreeca/flow dist-tags.latest 2>/dev/null || echo "0.0.0")
+          LATEST=$(npm view @metreeca/gear dist-tags.latest 2>/dev/null || echo "0.0.0")
 
           SERIES=${VERSION%.*}
           HIGHEST=$(printf '%s\n' "$SERIES" "${LATEST%.*}" | sort -V | tail -1)
