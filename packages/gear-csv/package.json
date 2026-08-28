@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@metreeca/flow": "^0.9.21",
-    "@metreeca/tape": "^0.9.1",
+    "@metreeca/tape": "^0.10.0",
     "csv-parse": "^7.0.2"
   },
   "devDependencies": {
