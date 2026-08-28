@@ -33,29 +33,17 @@ npm install @metreeca/gear-<type>    # task packages, among those listed above
 Install the core package, then add a task package for each input type the pipeline handles. These are self-contained
 leaf packages: each pulls in the core package transitively and only the libraries its own input type needs.
 
-| Package                            | Description                               |
-|------------------------------------|-------------------------------------------|
-| [@metreeca/gear]                   | Job execution runtime and shared services |
-| [@metreeca/gear-url]               | URL processing tasks                      |
-| [@metreeca/gear-json] (*upcoming*) | JSON processing tasks                     |
-| [@metreeca/gear-xml]  (*upcoming*) | XML and HTML processing tasks             |
-| [@metreeca/gear-csv]               | CSV processing tasks                      |
-| [@metreeca/gear-rdf]  (*upcoming*) | RDF processing tasks                      |
-| [@metreeca/gear-ical] (*upcoming*) | iCalendar processing tasks                |
+| Package              | Description                               |
+|----------------------|-------------------------------------------|
+| [@metreeca/gear]     | Job execution runtime and shared services |
+| [@metreeca/gear-url] | URL processing tasks                      |
+| (*upcoming*)         | JSON processing tasks                     |
+| (*upcoming*)         | XML and HTML processing tasks             |
+| [@metreeca/gear-csv] | CSV processing tasks                      |
 
 [@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
 
 [@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
-
-[@metreeca/gear-ical]: https://metreeca.github.io/gear/modules/_metreeca_gear-ical.html
-
-[@metreeca/gear-json]: https://metreeca.github.io/gear/modules/_metreeca_gear-json.html
-
-[@metreeca/gear-rdf]: https://metreeca.github.io/gear/modules/_metreeca_gear-rdf.html
-
-[@metreeca/gear-url]: https://metreeca.github.io/gear/modules/_metreeca_gear-url.html
-
-[@metreeca/gear-xml]: https://metreeca.github.io/gear/modules/_metreeca_gear-xml.html
 
 # Usage
 
@@ -77,16 +65,13 @@ import { feed } from "@metreeca/flow/feeds";
 import { forEach } from "@metreeca/flow/sinks";
 
 await executor(
-
-    bind(createVault, createDotVault)
-
+	bind(createVault, createDotVault)
 )(async () => pipe(feed([await service(createVault)("data-url")])
 
-    (fetch())
-    (csv())
+	(fetch())
+	(csv())
 
-    (forEach(record => console.log(record)))
-
+	(forEach(record => console.log(record)))
 ));
 ```
 

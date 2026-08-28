@@ -1,13 +1,13 @@
 {
-  "name": "@metreeca/gear-json",
+  "name": "@metreeca/gear-url",
   "version": "0.1.0",
-  "description": "JSON processing tasks for @metreeca/gear.",
+  "description": "URL processing tasks for @metreeca/gear.",
   "keywords": [
     "typescript",
     "pipeline",
     "etl",
     "extraction",
-    "json"
+    "url"
   ],
   "homepage": "https://metreeca.github.io/gear/",
   "bugs": {
@@ -23,7 +23,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/metreeca/gear.git",
-    "directory": "packages/gear-json"
+    "directory": "packages/gear-url"
   },
   "type": "module",
   "sideEffects": false,
@@ -47,9 +47,11 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/core": "^0.9.21",
+    "@metreeca/core": "^0.9.22",
+    "@metreeca/gear": "^0.1.0",
+    "@metreeca/http": "^0.1.0",
     "@metreeca/flow": "^0.9.21",
-    "@metreeca/tape": "^0.9.1"
+    "@metreeca/tape": "^0.10.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
