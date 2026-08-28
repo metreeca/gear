@@ -15,6 +15,6 @@
 #
 
 npx link \
-  ../Core \
+  ../Flow \
   ../Tape\
-  ../Flow
+  ../Core
