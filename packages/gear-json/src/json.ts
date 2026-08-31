@@ -72,7 +72,7 @@ export function json<V extends Value = Object>(): Task<string | Uint8Array, V> {
 
 		} catch ( error ) {
 
-			logger.warn`malformed document (${report(error)})`;
+			logger.warn`malformed JSON document (${report(error)})`;
 
 			return [];
 
