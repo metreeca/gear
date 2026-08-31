@@ -38,7 +38,7 @@ leaf packages: each pulls in the core package transitively and only the librarie
 | [@metreeca/gear]      | Job execution runtime and shared services |
 | [@metreeca/gear-url]  | URL processing tasks                      |
 | [@metreeca/gear-json] | JSON processing tasks                     |
-| (*upcoming*)          | XML and HTML processing tasks             |
+| [@metreeca/gear-xml]  | XML and HTML processing tasks             |
 | [@metreeca/gear-csv]  | CSV processing tasks                      |
 
 [@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
@@ -46,6 +46,8 @@ leaf packages: each pulls in the core package transitively and only the librarie
 [@metreeca/gear-url]: https://metreeca.github.io/gear/modules/_metreeca_gear-url.html
 
 [@metreeca/gear-json]: https://metreeca.github.io/gear/modules/_metreeca_gear-json.html
+
+[@metreeca/gear-xml]: https://metreeca.github.io/gear/modules/_metreeca_gear-xml.html
 
 [@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
 
