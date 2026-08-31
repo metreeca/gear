@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isNumber, isString, type Optional, type Value } from "@metreeca/core";
+import { isNumber, isString, type Value } from "@metreeca/core";
 import { Task } from "@metreeca/flow";
 
 
@@ -54,14 +54,18 @@ function jpath(mapper: (path: JPath) => unknown = path => path): unknown {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function required<V>(values: readonly V[]): Optional<V> {
+function required<V>(values: readonly V[]): V {
 	throw new Error(";( to be implemented"); // !!!
 }
 
-function optional<V>(values: readonly V[]): Optional<V> {
+function optional<V>(values: readonly V[]): undefined | V {
 	throw new Error(";( to be implemented"); // !!!
 }
 
-function multiple<V>(values: readonly V[]): ReadonlyArray<V> {
+function repeated<V>(values: readonly V[]): readonly [V, ...V[]] {
+	throw new Error(";( to be implemented"); // !!!
+}
+
+function multiple<V>(values: readonly V[]): readonly V[] {
 	throw new Error(";( to be implemented"); // !!!
 }
