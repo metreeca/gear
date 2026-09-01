@@ -69,8 +69,7 @@ const Accept = "text/html,"
  * {@link https://developer.mozilla.org/docs/Web/API/URL URL} objects or
  * {@link https://developer.mozilla.org/docs/Web/API/Request Request} objects.
  *
- * Chunks are pulled from the response as they are asked for, so resources of any size are handled without holding them
- * in memory and a consumer that stops early cancels the response; a response without a body contributes no chunks.
+ * A response without a body contributes no chunks.
  *
  * Exchanges are routed through the fetch client resolved from the enclosing
  * {@link @metreeca/gear!index.executor execution}, so that the transport is chosen when the task is run rather than
@@ -84,6 +83,15 @@ const Accept = "text/html,"
  * Content coding is left to the transport, which states the codings it decodes and decodes the body before it reaches
  * the consumer: no runtime API reports what an implementation handles, so a field stated here would be a guess, and a
  * coding guessed wrong would hand over a body still compressed.
+ *
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: chunks are emitted as they are received, so the reported feed runs dry as the feed drawn from
+ * >   does.
+ * > - **Streaming**: responses are drawn one at a time and chunk by chunk, none retained, so resources of any size
+ * >   are handled without holding them in memory and a consumer that stops early cancels the response.
+ * > - **Stateless**: every request is exchanged on its own, so the outcome is unaffected by how the feed is split
+ * >   across nested feeds or runs, whatever state `middlewares` and the resolved client carry across exchanges.
  *
  * > [!WARNING]
  * > Responses reporting an unsuccessful status are skipped, leaving the feed to run to completion; a request stating

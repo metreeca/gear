@@ -38,11 +38,16 @@ const logger = log(import.meta.url);
  * The generated task reads a feed of JSON text or byte chunks as a feed of values, taking the whole source as a
  * single document and reporting it as a single value.
  *
- * Chunks are pulled from the source in full before parsing, as JSON documents cannot be parsed incrementally: the
- * whole text is held in memory and nothing is reported until the source is exhausted; parsing requires the text as a
- * single contiguous string, so peak memory use is about twice the size of the document.
- *
  * A source reporting no text, or only whitespace, is read as an empty feed.
+ *
+ * > [!WARNING]
+ * >
+ * > - **Exhaustive**: the whole feed is drained before the value is emitted, as JSON documents cannot be parsed
+ * >   incrementally, so an infinite feed never completes.
+ * > - **Materialising**: the whole text is held in memory, as parsing requires it as a single contiguous string, so
+ * >   peak memory use is about twice the size of the document and a large one may exhaust it.
+ * > - **Stateful**: chunks are joined across draws, so a task invoked per nested feed or per run parses each as a
+ * >   document of its own rather than the feed as a whole.
  *
  * > [!WARNING]
  * > A document that cannot be parsed is skipped and reported to the log, leaving the feed to complete empty.

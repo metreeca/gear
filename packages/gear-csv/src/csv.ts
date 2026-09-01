@@ -38,9 +38,16 @@ const logger = log(import.meta.url);
  *
  * The generated task reads a feed of CSV text or byte chunks as a feed of records, one {@link Record} per data row.
  *
- * Chunks are pulled from the source as records are asked for, so sources of any size are handled without holding them
- * in memory and a consumer that stops early releases the source; some chunks are nonetheless read ahead of the
- * records actually consumed, and a source reporting the whole text at once is parsed in one go.
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: records are emitted as they are parsed, so the reported feed runs dry as the feed drawn from
+ * >   does.
+ * > - **Streaming**: chunks are pulled from the source as records are asked for, so sources of any size are handled
+ * >   without holding them in memory and a consumer that stops early releases the source; some chunks are
+ * >   nonetheless read ahead of the records actually consumed, and a source reporting the whole text at once is
+ * >   parsed in one go.
+ * > - **Stateful**: column labels and part-read rows are carried across draws, so a task invoked per nested feed or
+ * >   per run parses each as a document of its own, reading a header row of its own rather than sharing one.
  *
  * > [!WARNING]
  * > Records that cannot be parsed are skipped and reported to the log, leaving the feed to run to completion.

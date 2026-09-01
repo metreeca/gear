@@ -45,22 +45,22 @@ export type Source<T> =
  * links are stated either as strings or as {@link URL} objects, but reach `walker` and the feed as parsed objects,
  * each one the crawl's own and safe to be altered.
  *
+ * > [!WARNING]
+ * >
+ * > - **Incremental**: seeds are emitted as they are pulled and reachable URLs level by level, so the reported feed
+ * >   runs dry as the feed drawn from and `walker` do; no URL reachable from a seed is emitted until the source runs
+ * >   dry, so the feed never completes on an endless source.
+ * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the
+ * >   level being crawled, so an unbounded or widely branching graph may exhaust memory.
+ * > - **Stateful**: the URLs already crawled decide the ones that follow, so a task invoked per nested feed or per
+ * >   run crawls each independently, reaching a URL once per invocation rather than once for the feed as a whole.
+ *
  * > [!IMPORTANT]
  * >
  * > URLs are crawled at most once across the whole feed, whatever seed they are reached from, so cyclic and
  * > converging graphs are crawled without duplicates and without looping. They are matched by canonical form, so
  * > that an omitted path or an uppercase host is crawled once, while what the parser keeps apart, a trailing slash
  * > or a fragment among them, is crawled as a distinct URL.
- *
- * > [!IMPORTANT]
- * >
- * > Seeds are drained before the crawl descends: they are emitted as they are pulled, but no URL reachable from
- * > them is emitted until the source runs dry, so the feed never completes on an endless source.
- *
- * > [!WARNING]
- * >
- * > Every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the level being crawled.
- * > For unbounded or widely branching graphs, this may exhaust memory or never complete.
  *
  * @param walker The function stating the URLs linked from a URL, none if it is a leaf
  *
@@ -98,16 +98,20 @@ export function crawl(
  * Every URL is fed once, whatever the number of links converging on it, and what it stands for is released as soon as
  * it is walked and mapped, so it is never retained across levels.
  *
+ * > [!WARNING]
+ * >
+ * > - **Incremental**: the results of the seeds are emitted as the seeds are pulled and those of the reachable URLs
+ * >   level by level, so the reported feed runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
+ * >   URL reachable from a seed is fed until the source runs dry, so the feed never completes on an endless source.
+ * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the
+ * >   level being crawled, so an unbounded or widely branching graph may exhaust memory.
+ * > - **Stateful**: the URLs already crawled decide the ones that follow, so a task invoked per nested feed or per
+ * >   run crawls each independently, reaching a URL once per invocation rather than once for the feed as a whole.
+ *
  * > [!IMPORTANT]
  * >
  * > URLs are crawled at most once across the whole feed, whatever seed they are reached from, and matched by canonical
- * > form, as for the single-step form. Seeds are likewise drained before the crawl descends, so the feed never
- * > completes on an endless source.
- *
- * > [!WARNING]
- * >
- * > Every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the level being crawled.
- * > For unbounded or widely branching graphs, this may exhaust memory or never complete.
+ * > form, as for the single-step form.
  *
  * @typeParam V The type of what a crawled URL stands for
  * @typeParam R The type of the results derived from a crawled URL
