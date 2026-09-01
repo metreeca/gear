@@ -19,6 +19,19 @@ import type { Awaitable, Awaitables } from "@metreeca/core/async";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 
+/**
+ * A possibly asynchronous, possibly absent value.
+ *
+ * A value supplied either directly or as a promise, or omitted altogether, so that providers hand over whatever they
+ * already hold and consumers take absence and asynchrony uniformly.
+ *
+ * @typeParam T The type of the supplied value
+ */
+export type Source<T> =
+	Awaitable<Optional<T>>;
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Creates a task crawling the URLs reachable from the items of a feed.
@@ -49,8 +62,7 @@ import { items } from "@metreeca/flow/feeds";
  * > Every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the level being crawled.
  * > For unbounded or widely branching graphs, this may exhaust memory or never complete.
  *
- * @param walker The possibly asynchronous function stating the URLs linked from a URL as an
- *   {@link @metreeca/core!async.Awaitables Awaitables} sequence, or nothing if it is a leaf
+ * @param walker The function stating the URLs linked from a URL, none if it is a leaf
  *
  * @returns A task emitting the URLs of the source feed and every URL reachable from them, each at most once and as a
  *   parsed object
@@ -70,57 +82,205 @@ import { items } from "@metreeca/flow/feeds";
  * );  // the URLs of /a, /b, /c and /d, in that order
  * ```
  */
-export function crawl(walker: (url: URL) => Awaitable<Optional<Awaitables<string | URL>>>): Task<string | URL, URL> {
+export function crawl(
+	walker: (url: URL) => Source<Awaitables<string | URL>>
+): Task<string | URL, URL>;
 
-	return source => items((async function* () {
+/**
+ * Creates a task crawling the URLs reachable from the items of a feed, emitting results derived from what they stand
+ * for.
+ *
+ * Each crawled URL is handed to `feeder`, which states what it stands for, a parsed document among them, or nothing if
+ * it contributes neither links nor results; `walker` states the URLs linked from it and `mapper` the results derived
+ * from it, so that the crawl is driven and harvested from a single reading. Results are emitted in the level order the
+ * URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed, and so on.
+ *
+ * Every URL is fed once, whatever the number of links converging on it, and what it stands for is released as soon as
+ * it is walked and mapped, so it is never retained across levels.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > URLs are crawled at most once across the whole feed, whatever seed they are reached from, and matched by canonical
+ * > form, as for the single-step form. Seeds are likewise drained before the crawl descends, so the feed never
+ * > completes on an endless source.
+ *
+ * > [!WARNING]
+ * >
+ * > Every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the level being crawled.
+ * > For unbounded or widely branching graphs, this may exhaust memory or never complete.
+ *
+ * @typeParam V The type of what a crawled URL stands for
+ * @typeParam R The type of the results derived from a crawled URL
+ *
+ * @param feeder The function stating what a URL stands for, none if it is to be crawled no further and to contribute
+ *   no result
+ * @param walker The function stating the URLs linked from what a URL stands for, none if it is a leaf
+ * @param mapper The function stating the results derived from what a URL stands for, either a single result or a
+ *   sequence of them, none if it contributes no result
+ *
+ * @returns A task emitting the results derived from every crawled URL
+ *
+ * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
+ *   reference among them
+ *
+ * @example
+ *
+ * ```typescript
+ * await pipe(
+ *   (items(["https://example.com/products/"]))
+ *   (crawl(
+ *     url => parse(url), // the page the URL stands for, retrieved once
+ *     page => page.links(".pagination a"), // the index pages it paginates to
+ *     page => page.links(".entry a") // the item links it lists
+ *   ))
+ *   (toArray())
+ * );  // the item links of every index page
+ * ```
+ */
+export function crawl<V, R>(
+	feeder: (url: URL) => Source<V>,
+	walker: (data: V) => Source<Awaitables<string | URL>>,
+	mapper: (data: V) => Source<R | Awaitables<R>>
+): Task<string | URL, R>;
 
-		const visited = new Set<string>(); // the hrefs of the crawled URLs, shared by all seeds
+/**
+ * Creates a task crawling URLs, either navigating them alone or harvesting results from what they stand for.
+ */
+export function crawl<V, R>(...steps:
+	| [
+		walker: (url: URL) => Source<Awaitables<string | URL>>
+	]
+	| [
+		feeder: (url: URL) => Source<V>,
+		walker: (data: V) => Source<Awaitables<string | URL>>,
+		mapper: (data: V) => Source<R | Awaitables<R>>
+	]
+): Task<string | URL, URL | R> {
 
-		// the seed level, drained before descending so that the first arrival at a URL is its shallowest;
-		// seeds are emitted as they are pulled, so a slow source doesn't withhold the ones already in
+	return steps.length === 1 ? navigate(steps[0]) : harvest(steps[0], steps[1], steps[2]);
 
-		const seeds: URL[] = [];
 
-		for await (const seed of source) {
+	function navigate(walker: (url: URL) => Source<Awaitables<string | URL>>): Task<string | URL, URL> {
 
-			const url = new URL(seed);
+		return source => items((async function* () {
 
-			if ( visit(url) ) {
+			const visit = admitting();
 
-				seeds.push(url);
+			// the seed level, drained before descending so that the first arrival at a URL is its shallowest;
+			// seeds are emitted as they are pulled, so a slow source doesn't withhold the ones already in
 
-				yield url;
+			const seeds: URL[] = [];
+
+			for await (const seed of source) {
+
+				const url = new URL(seed);
+
+				if ( visit(url) ) {
+
+					seeds.push(url);
+
+					yield url;
+
+				}
 
 			}
 
-		}
+			// descend one level at a time, emitting every URL as it is reached for the first time
 
-		// descend one level at a time, emitting every URL as it is reached for the first time
+			let frontier: readonly URL[] = seeds;
 
-		let frontier: readonly URL[] = seeds;
+			while ( frontier.length > 0 ) {
 
-		while ( frontier.length > 0 ) {
+				const reached: URL[] = [];
 
-			const reached: URL[] = [];
+				for (const url of frontier) {
+					for await (const next of urls(await walker(url))) {
+						if ( visit(next) ) {
 
-			for (const url of frontier) {
-				for await (const next of walk(url)) {
-					if ( visit(next) ) {
+							reached.push(next);
 
-						reached.push(next);
+							yield next;
 
-						yield next;
-
+						}
 					}
 				}
+
+				frontier = reached;
+
 			}
 
-			frontier = reached;
+		})());
 
-		}
+	}
+
+	function harvest<V, R>(
+		feeder: (url: URL) => Source<V>,
+		walker: (data: V) => Source<Awaitables<string | URL>>,
+		mapper: (data: V) => Source<R | Awaitables<R>>
+	): Task<string | URL, R> {
+
+		return source => items((async function* () {
+
+			const visit = admitting();
+
+			// the URLs linked from the seed level, buffered until the source runs dry so that the first arrival at a URL
+			// is its shallowest; seeds are reached as they are pulled, so a slow source doesn't withhold the ones already in
+
+			const linked: URL[] = [];
+
+			for await (const seed of source) {
+
+				const url = new URL(seed);
+
+				if ( visit(url) ) {
+					yield* reach(url, linked);
+				}
+
+			}
+
+			// descend one level at a time, reaching every URL as it is admitted for the first time
+
+			let frontier: readonly URL[] = linked;
+
+			while ( frontier.length > 0 ) {
+
+				const reached: URL[] = [];
+
+				for (const url of frontier) {
+					yield* reach(url, reached);
+				}
+
+				frontier = reached;
+
+			}
 
 
-		function visit({ href }: URL): boolean {
+			async function* reach(url: URL, reached: URL[]): AsyncIterable<R> {
+
+				const data = await feeder(url);
+
+				if ( data !== undefined ) {
+
+					yield* items<R>(await mapper(data) ?? []);
+
+					for await (const next of urls(await walker(data))) {
+						if ( visit(next) ) { reached.push(next); }
+					}
+
+				}
+
+			}
+
+		})());
+
+	}
+
+
+	function admitting(): (url: URL) => boolean {
+
+		const visited = new Set<string>();
+
+		return ({ href }) => {
 
 			if ( visited.has(href) ) {
 
@@ -134,20 +294,16 @@ export function crawl(walker: (url: URL) => Awaitable<Optional<Awaitables<string
 
 			}
 
+		};
+
+	}
+
+	async function* urls(links: Optional<Awaitables<string | URL>>): AsyncIterable<URL> {
+
+		for await (const link of items(links ?? [])) {
+			yield new URL(link);
 		}
 
-		async function* walk(url: URL): AsyncIterable<URL> {
-
-			for await (const link of items(await walker(url) ?? [])) {
-				yield new URL(link);
-			}
-
-		}
-
-	})());
+	}
 
 }
-
-// feeder
-// walker
-// mapper

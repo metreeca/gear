@@ -20,7 +20,7 @@ import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
 import { take } from "@metreeca/flow/tasks";
 import { describe, expect, it } from "vitest";
-import { crawl } from "./crawl.js";
+import { crawl, type Source } from "./crawl.js";
 
 
 /**
@@ -60,6 +60,49 @@ function hrefs(urls: readonly URL[]): readonly string[] {
  */
 function walker(map: Record<string, readonly string[]>): (url: URL) => Optional<readonly URL[]> {
 	return url => map[url.pathname]?.map(path => new URL(path, url));
+}
+
+
+/**
+ * A retrieved page, as the intermediate representation the three-step crawl is driven and harvested from.
+ */
+interface Page {
+
+	readonly path: string;
+	readonly title: string;
+
+}
+
+/**
+ * The links of the test site, converging on `/d`.
+ */
+const site: Record<string, readonly string[]> = {
+	"/a": ["/b", "/c"],
+	"/b": ["/d"],
+	"/c": ["/d"],
+	"/d": []
+};
+
+
+/**
+ * States the page a crawled URL stands for, none if the site doesn't include it.
+ */
+function feeder(url: URL): Optional<Page> {
+	return site[url.pathname] && { path: url.pathname, title: url.pathname.slice(1).toUpperCase() };
+}
+
+/**
+ * States the URLs a page links to.
+ */
+function links({ path }: Page): Optional<readonly URL[]> {
+	return site[path]?.map(linked => new URL(linked, base));
+}
+
+/**
+ * States the title a page contributes.
+ */
+function title({ title }: Page): string {
+	return title;
 }
 
 
@@ -207,7 +250,7 @@ describe("crawl()", () => {
 
 	it("should expand every data shape the walker returns", async () => {
 
-		const shapes: Record<string, Awaitable<Optional<Awaitables<string | URL>>>> = {
+		const shapes: Record<string, Source<Awaitables<string | URL>>> = {
 			"/a": [href("/b")],
 			"/b": new Set([new URL(href("/c"))]),
 			"/c": items([href("/d")]),
@@ -247,6 +290,90 @@ describe("crawl()", () => {
 
 		expect(hrefs(values)).toEqual([href("/a")]);
 		expect(closed).toBe(true);
+
+	});
+
+
+	describe("with a feeder and a mapper", () => {
+
+		it("should emit the mapped results in level order", async () => {
+
+			const values = await items([href("/a")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("should feed every crawled URL once", async () => {
+
+			const fed: string[] = [];
+
+			const values = await items([href("/a")])(crawl(url => {
+
+				fed.push(url.pathname);
+
+				return feeder(url);
+
+			}, links, title))(toArray());
+
+			expect(fed).toEqual(["/a", "/b", "/c", "/d"]); // `/d` converges from `/b` and `/c`, but is fed once
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("should skip URLs the feeder states nothing for", async () => {
+
+			const values = await items([href("/a"), href("/missing")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("should emit the seed results before descending", async () => {
+
+			// descending eagerly would emit ["A", "B", "C", "D"]
+
+			const values = await items([href("/a"), href("/d")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "D", "B", "C"]);
+
+		});
+
+		it("should expand every data shape the mapper returns", async () => {
+
+			const shapes: Record<string, Source<string | Awaitables<string>>> = {
+				"/a": "A",
+				"/b": ["B"],
+				"/c": Promise.resolve(new Set(["C"])),
+				"/d": undefined
+			};
+
+			const values = await items([href("/a")])(crawl(feeder, links, page => shapes[page.path]))(toArray());
+
+			expect(values).toEqual(["A", "B", "C"]);
+
+		});
+
+		it("should crawl URLs contributing no result", async () => {
+
+			const values = await items([href("/a")])(crawl(feeder, links, page => page.path === "/d" ? "D" : undefined))
+			(toArray());
+
+			expect(values).toEqual(["D"]);
+
+		});
+
+		it("should support asynchronous steps", async () => {
+
+			const values = await items([href("/a")])(crawl(
+				async url => feeder(url),
+				async page => links(page),
+				async page => title(page)
+			))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
 
 	});
 
