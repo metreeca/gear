@@ -22,5 +22,5 @@
  * @see {@link https://www.rfc-editor.org/rfc/rfc3986 RFC 3986 Uniform Resource Identifier (URI): Generic Syntax}
  */
 
-export * from "./crawl.js";
 export * from "./fetch.js";
+export * from "./crawl.js";

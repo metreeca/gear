@@ -111,7 +111,6 @@ export function crawl(
  *
  * @typeParam V The type of what a crawled URL stands for
  * @typeParam R The type of the results derived from a crawled URL
- *
  * @param feeder The function stating what a URL stands for, none if it is to be crawled no further and to contribute
  *   no result
  * @param walker The function stating the URLs linked from what a URL stands for, none if it is a leaf
