@@ -15,6 +15,8 @@
  */
 
 import type { Awaitable } from "@metreeca/core/async";
+import type { Feed } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 import { bind, executor } from "@metreeca/gear";
 import { createFetch, type Fetch, type Middleware } from "@metreeca/http";
 import { setTimeout as delay } from "node:timers/promises";
@@ -23,30 +25,30 @@ import { fetch } from "./fetch.js";
 
 
 /**
- * Creates a source reporting the given requests.
+ * Creates a feed carrying the given requests.
  */
-async function* requests(...values: readonly (string | URL | Request)[]): AsyncIterable<string | URL | Request> {
-	yield* values;
+function requests(...values: readonly (string | URL | Request)[]): Feed<string | URL | Request> {
+	return items((async function* () { yield* values; })());
 }
 
 /**
- * Drains a stream into an array.
+ * Drains a feed into an array.
  *
  * Hand-rolled rather than delegating to `Array.fromAsync()`, which the `ES2022` library the project compiles against
  * doesn't provide.
  */
-async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
+async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
+	for await (const item of feed) { collected.push(item); } // draining a feed has no functional equivalent
 
 	return collected;
 
 }
 
 /**
- * Decodes a stream of byte chunks as text.
+ * Decodes byte chunks as text.
  */
 function text(chunks: readonly Uint8Array[]): string {
 	return chunks.map(chunk => new TextDecoder().decode(chunk)).join("");
@@ -74,13 +76,10 @@ function transport(handler: (request: Request) => Awaitable<Response>) {
 }
 
 /**
- * Runs `task` under an execution routing exchanges through `stub`, draining the stream it reports as a feed would,
- * dropping the `undefined` entries a task is free to report.
+ * Runs `task` under an execution routing exchanges through `stub`, draining the feed it yields.
  */
-function run<V>(stub: Fetch, task: () => AsyncIterable<undefined | V>): Promise<readonly V[]> {
-	return executor(bind(createFetch, () => stub))(async () =>
-		(await collect(task())).filter(item => item !== undefined)
-	);
+function run<V>(stub: Fetch, task: () => AsyncIterable<V>): Promise<readonly V[]> {
+	return executor(bind(createFetch, () => stub))(() => collect(task()));
 }
 
 
@@ -101,7 +100,7 @@ describe("fetch", () => {
 
 		});
 
-		it("reads a response reporting no body as an empty stream", async () => {
+		it("yields no chunks for a response without a body", async () => {
 
 			const { stub } = transport(() => new Response(null, { status: 204 }));
 

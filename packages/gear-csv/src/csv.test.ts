@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { Feed } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 import { Buffer } from "node:buffer";
 import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
@@ -29,30 +31,30 @@ type Row = {
 
 
 /**
- * Creates a source reporting the given chunks.
+ * Creates a feed carrying the given chunks.
  */
-async function* chunks(...values: readonly (string | Uint8Array)[]): AsyncIterable<string | Uint8Array> {
-	yield* values;
+function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
+	return items((async function* () { yield* values; })());
 }
 
 /**
- * Drains a stream into an array.
+ * Drains a feed into an array.
  *
  * Hand-rolled rather than delegating to `Array.fromAsync()`, which the `ES2022` library the project compiles against
  * doesn't provide.
  */
-async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
+async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
+	for await (const item of feed) { collected.push(item); } // draining a feed has no functional equivalent
 
 	return collected;
 
 }
 
 /**
- * Creates a counting source reporting a header and data rows, recording the effects the task has on it.
+ * Creates a counting feed carrying a header and data rows, recording the effects the task has on it.
  */
 function rows(count: number) {
 
@@ -80,7 +82,7 @@ function rows(count: number) {
 
 	}
 
-	return { state, chunks: generate() };
+	return { state, chunks: items(generate()) };
 
 }
 
@@ -214,13 +216,13 @@ describe("csv", () => {
 
 	it("reports source failures", async () => {
 
-		const failing = (async function* () {
+		const failing = items((async function* () {
 
 			yield "id,label\n";
 
 			throw new Error("broken source"); // told apart from failures reported by the task by its message
 
-		})();
+		})());
 
 		await expect(collect(csv({ header: true })(failing))).rejects.toThrow("broken source");
 

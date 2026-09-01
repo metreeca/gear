@@ -14,42 +14,43 @@
  * limitations under the License.
  */
 
-import type { Awaitable } from "@metreeca/core/async";
-import type { Data, Task } from "@metreeca/flow";
-import { feed } from "@metreeca/flow/feeds";
+import type { Awaitable, Awaitables } from "@metreeca/core/async";
+import type { Task } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 
 
 /**
- * Creates a task crawling the nodes reachable from the items of a stream.
+ * Creates a task crawling the nodes reachable from the items of a feed.
  *
- * Each item is taken as a crawl seed and `traverser` converts a node into the {@link @metreeca/flow!index.Data Data}
- * value listing the nodes reachable from it, or into `undefined` if the node is a leaf. Nodes are emitted
- * breadth-first in level order, every seed first, then every node one step away from a seed, and so on, so that the
- * first arrival at a node is also its shallowest one. Nodes are emitted as they are, arrays and iterables whole
- * rather than expanded into their items, while the value returned by `traverser` is expanded into the nodes it lists.
+ * Each item is taken as a crawl seed and `traverser` converts a node into the
+ * {@link @metreeca/core!async.Awaitables Awaitables} sequence listing the nodes reachable from it, or into `undefined`
+ * if the node is a leaf. Nodes are emitted breadth-first in level order, every seed first, then every node one step
+ * away from a seed, and so on, so that the first arrival at a node is also its shallowest one. Nodes are emitted as
+ * they are, arrays and iterables whole rather than expanded into their items, while the sequence returned by
+ * `traverser` is expanded into the nodes it lists.
  *
  * Crawling navigates a graph without changing the node type: retrieving whatever a node stands for belongs to the
  * pipe `traverser` is built from, while deriving results from the crawled nodes belongs to the tasks downstream.
  *
  * > [!NOTE]
  * >
- * > Node types are inferred from the source stream and never from `traverser` or `opts.selector`, so that a traverser
+ * > Node types are inferred from the source feed and never from `traverser` or `opts.selector`, so that a traverser
  * > yielding no node doesn't collapse them.
  *
  * > [!IMPORTANT]
  * >
- * > Nodes are crawled at most once. The set of the crawled nodes is shared by all seeds and spans the whole stream,
+ * > Nodes are crawled at most once. The set of the crawled nodes is shared by all seeds and spans the whole feed,
  * > so cyclic and converging graphs are crawled without duplicates and without looping. Nodes are matched the way a
  * > `Set` matches them, that is by `SameValueZero`, unless `opts.selector` derives a key to match them by.
  *
  * > [!IMPORTANT]
  * >
  * > Seeds are drained before the crawl descends: they are emitted as they are pulled, but no node reachable from
- * > them is emitted until the source runs dry, so the stream never completes on an infinite source.
+ * > them is emitted until the source runs dry, so the feed never completes on an endless source.
  *
  * > [!WARNING]
  * >
- * > One key per crawled node is retained for the whole lifetime of the stream: without `opts.selector` that key is
+ * > One key per crawled node is retained for the whole lifetime of the feed: without `opts.selector` that key is
  * > the node itself, otherwise only the derived key is held and the nodes are released as their level passes. The
  * > seeds and the level being crawled are buffered as well. For unbounded or widely branching graphs, this may
  * > exhaust memory or never complete.
@@ -63,7 +64,7 @@ import { feed } from "@metreeca/flow/feeds";
  * @param opts.selector The possibly asynchronous function deriving from a node the key it is matched by; defaults to
  *   matching nodes by themselves
  *
- * @returns A task emitting the items of the source stream and every node reachable from them, each at most once
+ * @returns A task emitting the items of the source feed and every node reachable from them, each at most once
  *
  * @example
  *
@@ -71,7 +72,7 @@ import { feed } from "@metreeca/flow/feeds";
  * const graph: Record<string, string[]> = { a: ["b", "c"], b: ["d"], c: ["d"], d: [] };
  *
  * await pipe(
- *   (feed(["a"]))
+ *   (items(["a"]))
  *   (crawl(node => graph[node]))
  *   (toArray())
  * );  // ["a", "b", "c", "d"]
@@ -80,7 +81,7 @@ import { feed } from "@metreeca/flow/feeds";
 // !!! a staged traverser, splitting node retrieval from link extraction, was sketched as an alternative overload
 // !!! and dropped here to keep the module compilable: revisit before wiring `crawl` into the package exports
 
-export function crawl<V, K>(traverser: (node: V) => Awaitable<undefined | Data<NoInfer<V>>>, {
+export function crawl<V, K>(traverser: (node: V) => Awaitable<undefined | Awaitables<NoInfer<V>>>, {
 
 	selector
 
@@ -90,7 +91,7 @@ export function crawl<V, K>(traverser: (node: V) => Awaitable<undefined | Data<N
 
 } = {}): Task<V> {
 
-	return async function* (source: AsyncIterable<V>) {
+	return source => items((async function* () {
 
 		const crawled = new Set<K | V>(); // the keys of the crawled nodes, shared by all seeds
 
@@ -157,19 +158,19 @@ export function crawl<V, K>(traverser: (node: V) => Awaitable<undefined | Data<N
 
 		}
 
-	};
+	})());
 
 
 	/**
 	 * Traverses a node.
 	 *
-	 * @returns A stream of the nodes reachable from `node`, empty if the traverser extracts none from it
+	 * @returns The nodes reachable from `node`, none if the traverser extracts none from it
 	 */
 	async function* traverse(node: V): AsyncIterable<V> {
 
 		const data = await traverser(node);
 
-		yield* feed<V>(data === undefined ? [] : data)(); // `??` would take a `null` node for a leaf
+		yield* items<V>(data === undefined ? [] : data); // `??` would take a `null` node for a leaf
 
 	}
 

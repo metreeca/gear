@@ -67,15 +67,15 @@ import { createDotVault, createVault } from "@metreeca/gear/vault";
 import { csv } from "@metreeca/gear-csv";
 import { fetch } from "@metreeca/gear-url";
 import { pipe } from "@metreeca/flow";
-import { feed } from "@metreeca/flow/feeds";
-import { forEach } from "@metreeca/flow/sinks";
+import { items } from "@metreeca/flow/feeds";
+import { each } from "@metreeca/flow/sinks";
 
 await executor(
 	bind(createVault, createDotVault)
-)(async () => pipe(feed([await service(createVault)("data-url")])
+)(async () => pipe(items([await service(createVault)("data-url")])
 	(fetch())
 	(csv())
-	(forEach(record => console.log(record)))
+	(each(record => console.log(record)))
 ));
 ```
 

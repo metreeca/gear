@@ -15,6 +15,8 @@
  */
 
 import type { Value } from "@metreeca/core";
+import type { Feed } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 import { json } from "./json.js";
@@ -29,23 +31,23 @@ type Item = {
 
 
 /**
- * Creates a source reporting the given chunks.
+ * Creates a feed carrying the given chunks.
  */
-async function* chunks(...values: readonly (string | Uint8Array)[]): AsyncIterable<string | Uint8Array> {
-	yield* values;
+function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
+	return items((async function* () { yield* values; })());
 }
 
 /**
- * Drains a stream into an array.
+ * Drains a feed into an array.
  *
  * Hand-rolled rather than delegating to `Array.fromAsync()`, which the `ES2022` library the project compiles against
  * doesn't provide.
  */
-async function collect<V>(items: AsyncIterable<V>): Promise<readonly V[]> {
+async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 
 	const collected: V[] = [];
 
-	for await (const item of items) { collected.push(item); } // draining a stream has no functional equivalent
+	for await (const item of feed) { collected.push(item); } // draining a feed has no functional equivalent
 
 	return collected;
 
@@ -160,13 +162,13 @@ describe("json", () => {
 
 	it("reports source failures", async () => {
 
-		const failing = (async function* () {
+		const failing = items((async function* () {
 
 			yield `{ "id": "1", `;
 
 			throw new Error("broken source"); // told apart from failures reported by the task by its message
 
-		})();
+		})());
 
 		await expect(collect(json()(failing))).rejects.toThrow("broken source");
 
@@ -177,7 +179,7 @@ describe("json", () => {
 		const count = 1_000;
 		const state = { pulled: 0 }; // records how far the task pulls the source
 
-		async function* items(): AsyncIterable<string> {
+		async function* source(): AsyncIterable<string> {
 
 			yield "[";
 
@@ -193,7 +195,7 @@ describe("json", () => {
 
 		}
 
-		const values = json<readonly Item[]>()(items())[Symbol.asyncIterator]();
+		const values = json<readonly Item[]>()(items(source()))[Symbol.asyncIterator]();
 
 		await values.next();
 

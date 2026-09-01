@@ -21,6 +21,7 @@
  */
 
 import type { Task } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 import { log } from "@metreeca/tape";
 import { parse } from "csv-parse";
 import { pipeline, Readable } from "node:stream";
@@ -35,14 +36,14 @@ const logger = log(import.meta.url);
 /**
  * Creates a CSV parser.
  *
- * The generated task reads CSV text and byte streams as streams of records, one {@link Record} per data row.
+ * The generated task reads a feed of CSV text or byte chunks as a feed of records, one {@link Record} per data row.
  *
  * Chunks are pulled from the source as records are asked for, so sources of any size are handled without holding them
  * in memory and a consumer that stops early releases the source; some chunks are nonetheless read ahead of the
  * records actually consumed, and a source reporting the whole text at once is parsed in one go.
  *
  * > [!WARNING]
- * > Records that cannot be parsed are skipped and reported to the log, leaving the stream to run to completion.
+ * > Records that cannot be parsed are skipped and reported to the log, leaving the feed to run to completion.
  *
  * @typeParam R The type of the reported records; field values are reported as parsed, without being validated
  *              against it
@@ -57,9 +58,9 @@ const logger = log(import.meta.url);
  * @param options.quote The character wrapping field values; defaults to `"` if unset or empty
  * @param options.delimiter The character separating fields; defaults to `,` if unset or empty
  *
- * @returns A task converting a stream of CSV text or byte chunks into a stream of records
+ * @returns A task converting a feed of CSV text or byte chunks into a feed of records
  *
- * @throws Error While iterating the returned stream, whatever the source reports while producing chunks
+ * @throws Error While the feed is consumed, whatever the source reports while producing chunks
  */
 export function csv<R extends Record = Record>({
 
@@ -85,7 +86,7 @@ export function csv<R extends Record = Record>({
 
 } = {}): Task<string | Uint8Array, R> {
 
-	return async function* (chunks) {
+	return chunks => items((async function* () {
 
 		// built per application, so nothing is read until the first record is pulled
 
@@ -115,6 +116,6 @@ export function csv<R extends Record = Record>({
 
 		yield* parser;
 
-	};
+	})());
 
 }

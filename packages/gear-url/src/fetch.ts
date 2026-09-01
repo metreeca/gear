@@ -23,6 +23,7 @@
  */
 
 import type { Task } from "@metreeca/flow";
+import { items } from "@metreeca/flow/feeds";
 import { service } from "@metreeca/gear";
 import { createFetch, type Middleware } from "@metreeca/http";
 import { headers } from "@metreeca/http/headers";
@@ -63,14 +64,13 @@ const Accept = "text/html,"
 /**
  * Creates a resource exchange task.
  *
- * The generated task reads a stream of requests as a stream of byte chunks, reporting the body of each response as its
+ * The generated task reads a feed of requests as a feed of byte chunks, emitting the body of each response as its
  * chunks are received; requests are given as accepted by the standard `fetch()` function, that is as URL strings,
  * {@link https://developer.mozilla.org/docs/Web/API/URL URL} objects or
  * {@link https://developer.mozilla.org/docs/Web/API/Request Request} objects.
  *
  * Chunks are pulled from the response as they are asked for, so resources of any size are handled without holding them
- * in memory and a consumer that stops early cancels the response; a response reporting no body is read as an empty
- * stream.
+ * in memory and a consumer that stops early cancels the response; a response without a body contributes no chunks.
  *
  * Exchanges are routed through the fetch client resolved from the enclosing
  * {@link @metreeca/gear!index.executor execution}, so that the transport is chosen when the task is run rather than
@@ -86,23 +86,23 @@ const Accept = "text/html,"
  * coding guessed wrong would hand over a body still compressed.
  *
  * > [!WARNING]
- * > Responses reporting an unsuccessful status are skipped, leaving the stream to run to completion; a request
- * > stating a URL that is not absolute or is otherwise malformed brings the stream down instead, unless a middleware
- * > screening it, such as `monitor()` from `@metreeca/http/monitor`, is layered over the client.
+ * > Responses reporting an unsuccessful status are skipped, leaving the feed to run to completion; a request stating
+ * > a URL that is not absolute or is otherwise malformed brings the feed down instead, unless a middleware screening
+ * > it, such as `monitor()` from `@metreeca/http/monitor`, is layered over the client.
  *
  * @param middlewares The middlewares to be layered over the resolved fetch client, in request processing order
  *
- * @returns A task converting a stream of requests into a stream of response byte chunks
+ * @returns A task converting a feed of requests into a feed of response byte chunks
  *
- * @throws Error While iterating the returned stream, if no execution is running, as the fetch client is resolved from
- *               the enclosing one
+ * @throws Error While the feed is consumed, if no execution is running, as the fetch client is resolved from the
+ *               enclosing one
  *
- * @throws Error While iterating the returned stream, whatever the exchange reports while connecting to a resource or
- *               receiving its response
+ * @throws Error While the feed is consumed, whatever the exchange reports while connecting to a resource or receiving
+ *               its response
  */
 export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Uint8Array> {
 
-	return async function* (requests) {
+	return requests => items((async function* () {
 
 		const fetch = service(createFetch);
 
@@ -121,10 +121,10 @@ export function fetch(...middlewares: readonly Middleware[]): Task<string | URL 
 
 			const response = await send(request);
 
-			yield* response.ok ? response.body ?? [] : []; // a response including no body is read as an empty stream
+			yield* response.ok ? response.body ?? [] : []; // a response without a body contributes no chunks
 
 		}
 
-	};
+	})());
 
 }

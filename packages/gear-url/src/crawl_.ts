@@ -18,7 +18,7 @@ import { createThrottle, type Throttle } from "@metreeca/core/async";
 import { pipe, type Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
-import { concurrent, flatMap } from "@metreeca/flow/tasks";
+import { flat, fork, map } from "@metreeca/flow/tasks";
 import { crawl } from "./crawl.js";
 
 
@@ -27,7 +27,7 @@ import { crawl } from "./crawl.js";
  *
  * The crawl navigates the pagination graph alone, over URIs rather than over the pages they stand for, so that
  * converging links are rejected before a request is spent on them and cycles between index pages terminate. Listing
- * is not navigation and stays out of the crawl: item links fan out from each index page through a `flatMap`.
+ * is not navigation and stays out of the crawl: item links fan out from each index page through a `map`/`flat` pair.
  *
  * `retrieve` caches by URI, so each page is requested once however many times the pipeline retrieves it.
  *
@@ -37,7 +37,7 @@ export function catalogue(): Promise<readonly Document[]> {
 
 	// one budget and one cache for every request the pipeline issues: 32 in flight at most, no more than 4 a second
 
-	const retrieve = concurrent(32, fetch(createThrottle({ minimum: 1000/4 })));
+	const retrieve = fork(32, fetch(createThrottle({ minimum: 1000/4 })));
 
 	return pipe(
 		(items("https://example.com/products/"))
@@ -45,11 +45,13 @@ export function catalogue(): Promise<readonly Document[]> {
 		(crawl(uri => pipe( // from an index page, the index pages it paginates to
 			(items(uri))
 			(retrieve)
-			(flatMap(page => links(page, ".pagination a")))
+			(map(page => items(links(page, ".pagination a"))))
+			(flat())
 		)))
 
 		(retrieve) // the index pages again, from the cache
-			(flatMap(page => links(page, ".entry a"))) // the item links it lists
+			(map(page => items(links(page, ".entry a")))) // the item links it lists
+			(flat())
 			(retrieve) // every item page, requested once
 
 			(toArray())

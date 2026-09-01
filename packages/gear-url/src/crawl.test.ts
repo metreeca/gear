@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import type { Data } from "@metreeca/flow";
-import { feed } from "@metreeca/flow/feeds";
+import type { Awaitables } from "@metreeca/core/async";
+import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
 import { take } from "@metreeca/flow/tasks";
 import { describe, expect, it } from "vitest";
@@ -39,7 +39,7 @@ describe("crawl()", () => {
 
 	it("should emit the seed nodes", async () => {
 
-		const values = await feed(["a", "b"])(crawl(() => undefined))(toArray());
+		const values = await items(["a", "b"])(crawl(() => undefined))(toArray());
 
 		expect(values).toEqual(["a", "b"]);
 
@@ -47,7 +47,7 @@ describe("crawl()", () => {
 
 	it("should emit nothing for an empty source", async () => {
 
-		const values = await feed<string>([])(crawl(() => undefined))(toArray());
+		const values = await items<string>([])(crawl(() => undefined))(toArray());
 
 		expect(values).toEqual([]);
 
@@ -57,7 +57,7 @@ describe("crawl()", () => {
 
 		// depth-first pre-order would emit ["a", "b", "d", "c", "e"]; `z` is unreachable from `a`
 
-		const values = await feed(["a"])(crawl(node => graph[node]))(toArray());
+		const values = await items(["a"])(crawl(node => graph[node]))(toArray());
 
 		expect(values).toEqual(["a", "b", "c", "d", "e"]);
 
@@ -69,7 +69,7 @@ describe("crawl()", () => {
 
 		const converging: Record<string, readonly string[]> = { a: ["b", "f"], b: ["e"], e: ["f"], f: [] };
 
-		const values = await feed(["a"])(crawl(node => converging[node]))(toArray());
+		const values = await items(["a"])(crawl(node => converging[node]))(toArray());
 
 		expect(values).toEqual(["a", "b", "f", "e"]);
 
@@ -79,7 +79,7 @@ describe("crawl()", () => {
 
 		const cyclic: Record<string, readonly string[]> = { a: ["b"], b: ["a"] };
 
-		const values = await feed(["a"])(crawl(node => cyclic[node]))(toArray());
+		const values = await items(["a"])(crawl(node => cyclic[node]))(toArray());
 
 		expect(values).toEqual(["a", "b"]);
 
@@ -89,7 +89,7 @@ describe("crawl()", () => {
 
 		const shared: Record<string, readonly string[]> = { a: ["d"], c: ["d"], d: [] };
 
-		const values = await feed(["a", "c"])(crawl(node => shared[node]))(toArray());
+		const values = await items(["a", "c"])(crawl(node => shared[node]))(toArray());
 
 		expect(values).toEqual(["a", "c", "d"]);
 
@@ -97,7 +97,7 @@ describe("crawl()", () => {
 
 	it("should crawl repeated seeds once", async () => {
 
-		const values = await feed(["a", "a"])(crawl(() => undefined))(toArray());
+		const values = await items(["a", "a"])(crawl(() => undefined))(toArray());
 
 		expect(values).toEqual(["a"]);
 
@@ -107,7 +107,7 @@ describe("crawl()", () => {
 
 		// descending eagerly would emit ["a", "p", "x"]
 
-		const values = await feed(["a", "x"])(crawl(node => node === "a" ? "p" : undefined))(toArray());
+		const values = await items(["a", "x"])(crawl(node => node === "a" ? "p" : undefined))(toArray());
 
 		expect(values).toEqual(["a", "x", "p"]);
 
@@ -117,7 +117,7 @@ describe("crawl()", () => {
 
 		let traversals = 0;
 
-		const seeds = feed((async function* () {
+		const seeds = items((async function* () {
 			for (let i = 0; true; i++) { yield `s${i}`; }
 		})());
 
@@ -136,7 +136,7 @@ describe("crawl()", () => {
 
 	it("should treat an undefined traversal as a leaf", async () => {
 
-		const values = await feed(["a"])(crawl(node => node === "a" ? ["b"] : undefined))(toArray());
+		const values = await items(["a"])(crawl(node => node === "a" ? ["b"] : undefined))(toArray());
 
 		expect(values).toEqual(["a", "b"]);
 
@@ -144,7 +144,7 @@ describe("crawl()", () => {
 
 	it("should emit iterable nodes whole", async () => {
 
-		const values = await feed<readonly string[]>([["x", "y"]])(crawl(() => undefined))(toArray());
+		const values = await items<readonly string[]>([["x", "y"]])(crawl(() => undefined))(toArray());
 
 		expect(values).toEqual([["x", "y"]]);
 
@@ -157,7 +157,7 @@ describe("crawl()", () => {
 
 		// the traverser yields `two` only if handed `one` itself, so both ends of the identity are exercised
 
-		const values = await feed([one])(crawl(node => node === one ? [two] : undefined))(toArray());
+		const values = await items([one])(crawl(node => node === one ? [two] : undefined))(toArray());
 
 		expect(values).toEqual([{ id: 1 }, { id: 1 }]); // structurally equal, but crawled as distinct nodes
 
@@ -165,16 +165,16 @@ describe("crawl()", () => {
 
 	it("should expand every data shape the traverser returns", async () => {
 
-		const shapes: Record<string, undefined | Data<string>> = {
+		const shapes: Record<string, undefined | Awaitables<string>> = {
 			a: "b",
 			b: ["c"],
 			c: new Set(["d"]),
-			d: feed(["e"]),
+			d: items(["e"]),
 			e: (async function* () { yield "f"; })(),
 			f: undefined
 		};
 
-		const values = await feed(["a"])(crawl(node => shapes[node]))(toArray());
+		const values = await items(["a"])(crawl(node => shapes[node]))(toArray());
 
 		expect(values).toEqual(["a", "b", "c", "d", "e", "f"]);
 
@@ -182,7 +182,7 @@ describe("crawl()", () => {
 
 	it("should support asynchronous traversers", async () => {
 
-		const values = await feed(["a"])(crawl(async node => graph[node]))(toArray());
+		const values = await items(["a"])(crawl(async node => graph[node]))(toArray());
 
 		expect(values).toEqual(["a", "b", "c", "d", "e"]);
 
@@ -192,7 +192,7 @@ describe("crawl()", () => {
 
 		let closed = false;
 
-		const seeds = feed((async function* () {
+		const seeds = items((async function* () {
 			try {
 				yield "a";
 				yield "b";
@@ -216,7 +216,7 @@ describe("crawl()", () => {
 			const one = { uri: "u" };
 			const two = { uri: "u" };
 
-			const values = await feed([one])(crawl(node => node === one ? [two] : undefined, {
+			const values = await items([one])(crawl(node => node === one ? [two] : undefined, {
 				selector: node => node.uri
 			}))(toArray());
 
@@ -226,7 +226,7 @@ describe("crawl()", () => {
 
 		it("should crawl seeds with equal keys once", async () => {
 
-			const values = await feed([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
+			const values = await items([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
 				selector: node => node.uri
 			}))(toArray());
 
@@ -236,7 +236,7 @@ describe("crawl()", () => {
 
 		it("should support asynchronous selectors", async () => {
 
-			const values = await feed([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
+			const values = await items([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
 				selector: async node => node.uri
 			}))(toArray());
 
