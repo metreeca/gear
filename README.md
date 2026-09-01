@@ -2,16 +2,14 @@
 
 Ready-made tasks and shared services for ETL jobs.
 
-**@metreeca/gear** is a collection of ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for retrieving
-remote or local sources and parsing the usual interchange formats, plus the job executor those tasks draw their shared
-services from. Key features include:
+**@metreeca/gear** brings ready-made [@metreeca/flow](https://github.com/metreeca/flow) tasks for acquiring data from
+external sources and converting it into the values a pipeline works on. The tasks run under a pluggable job executor,
+which supplies the shared services they draw on.
 
-- **Ready-Made Tasks**: retrieval and parsing tasks chaining into a pipe alongside any other task
-- **Shared Services**: facilities covering the surroundings a run works against, such as its working space
-- **Custom Bindings**: any service replaced for the duration of a run, without altering the code drawing on it
-- **Scoped Lifecycle**: service instances constructed on first use, shared across a run, and, where they implement a
-  disposal protocol, disposed as it ends
-- **Minimal Footprint**: install one package per input type, each pulling in only the libraries that type needs
+- **Ready-Made Tasks**: retrieval and parsing for the usual interchange formats, chaining alongside any other task
+- **Shared Services**: the working space, secrets and caches a run needs, built on demand and released as it ends
+- **Custom Bindings**: a stubbed, throttled or cached implementation swapped in for a run, leaving the job untouched
+- **Minimal Footprint**: one package per input type, each pulling in only the libraries that type needs
 
 > [!IMPORTANT]
 >

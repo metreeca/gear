@@ -41,7 +41,7 @@ export type Vault = {
 	/**
 	 * Retrieves a sensitive configuration parameter.
 	 *
-	 * A parameter defined as empty reports an empty value.
+	 * A parameter defined as empty yields an empty value.
 	 *
 	 * @param key The unique key identifying the parameter to be retrieved
 	 *

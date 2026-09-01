@@ -14,14 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * Resource fetcher.
- *
- * @module
- *
- * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
- */
-
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { service } from "@metreeca/gear";
@@ -35,7 +27,7 @@ import { transport } from "@metreeca/http/transport";
  *
  * States a current desktop Chrome, so that sites serving unattended clients differently, or refusing them altogether,
  * are scraped as a browser would be. The platform token and the `AppleWebKit` and `Safari` tokens are frozen by the
- * reduced user agent Chrome reports, leaving the Chrome version as the only one to be kept in step.
+ * reduced user agent Chrome sends, leaving the Chrome version as the only one to be kept in step.
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-10.1.5 RFC 9110 § 10.1.5 - User-Agent}
  * @see {@link https://developer.chrome.com/docs/privacy-security/user-agent-client-hints User-Agent Client Hints}
@@ -80,13 +72,12 @@ const Accept = "text/html,"
  * differently, or refusing them altogether, are scraped as a browser would be; a request already stating one of these
  * fields keeps its own value, as do the ones stated by `middlewares`.
  *
- * Content coding is left to the transport, which states the codings it decodes and decodes the body before it reaches
- * the consumer: no runtime API reports what an implementation handles, so a field stated here would be a guess, and a
- * coding guessed wrong would hand over a body still compressed.
+ * Content coding is left to the transport, which states the codings it accepts and decodes the body before it reaches
+ * the consumer, so that no `Accept-Encoding` field is stated here and no body is handed over still compressed.
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: chunks are emitted as they are received, so the reported feed runs dry as the feed drawn from
+ * > - **Incremental**: chunks are emitted as they are received, so the feed produced runs dry as the feed drawn from
  * >   does.
  * > - **Streaming**: responses are drawn one at a time and chunk by chunk, none retained, so resources of any size
  * >   are handled without holding them in memory and a consumer that stops early cancels the response.
@@ -94,7 +85,7 @@ const Accept = "text/html,"
  * >   across nested feeds or runs, whatever state `middlewares` and the resolved client carry across exchanges.
  *
  * > [!WARNING]
- * > Responses reporting an unsuccessful status are skipped, leaving the feed to run to completion; a request stating
+ * > Responses stating an unsuccessful status are skipped, leaving the feed to run to completion; a request stating
  * > a URL that is not absolute or is otherwise malformed brings the feed down instead, unless a middleware screening
  * > it, such as `monitor()` from `@metreeca/http/monitor`, is layered over the client.
  *
@@ -102,11 +93,13 @@ const Accept = "text/html,"
  *
  * @returns A task converting a feed of requests into a feed of response byte chunks
  *
- * @throws Error While the feed is consumed, if no execution is running, as the fetch client is resolved from the
- *               enclosing one
+ * @throws {Error} While the feed is consumed, if no execution is running, as the fetch client is resolved from the
+ *                 enclosing one
  *
- * @throws Error While the feed is consumed, whatever the exchange reports while connecting to a resource or receiving
- *               its response
+ * @throws {Error} While the feed is consumed, whatever the exchange reports while connecting to a resource or
+ *                 receiving its response
+ *
+ * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
  */
 export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Uint8Array> {
 

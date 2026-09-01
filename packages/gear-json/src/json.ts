@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * JSON parser.
- *
- * @module
- */
-
 import type { Object, Value } from "@metreeca/core";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
@@ -36,9 +30,9 @@ const logger = log(import.meta.url);
  * Creates a JSON parser.
  *
  * The generated task reads a feed of JSON text or byte chunks as a feed of values, taking the whole source as a
- * single document and reporting it as a single value.
+ * single document and emitting it as a single value.
  *
- * A source reporting no text, or only whitespace, is read as an empty feed.
+ * A source yielding no text, or only whitespace, is read as an empty feed.
  *
  * > [!WARNING]
  * >
@@ -52,12 +46,12 @@ const logger = log(import.meta.url);
  * > [!WARNING]
  * > A document that cannot be parsed is skipped and reported to the log, leaving the feed to complete empty.
  *
- * @typeParam V The type of the reported value; the parsed document is reported as is, without being validated
+ * @typeParam V The type of the value produced; the parsed document is emitted as is, without being validated
  *              against it; defaults to a JSON {@link Object}
  *
  * @returns A task converting a feed of JSON text or byte chunks into a feed of values
  *
- * @throws Error While the feed is consumed, whatever the source reports while producing chunks
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing chunks
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  */

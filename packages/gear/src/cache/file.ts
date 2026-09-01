@@ -91,7 +91,7 @@ export function createFileCache({
 } = {}): Bucket {
 
 	/**
-	 * A stored value, as reported by a scan of the cache folder.
+	 * A stored value, as found by a scan of the cache folder.
 	 */
 	type Entry = {
 

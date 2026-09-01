@@ -21,7 +21,7 @@ import type { Vault } from "./index.js";
  * Creates an environment vault.
  *
  * Parameters are looked up among the environment variables of the process as each request is served, so that a
- * variable defined after the vault was constructed is reported as well.
+ * variable defined after the vault was constructed is retrieved as well.
  *
  * Keys may be prefixed, so that parameters are namespaced within a shared environment: `prefix` is prepended as
  * given, without a separator of its own.

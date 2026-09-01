@@ -36,9 +36,9 @@ export type Source<T> =
 /**
  * Creates a task crawling the URLs reachable from the items of a feed.
  *
- * Each item of the feed is taken as a crawl seed and every URL reached is walked in turn. URLs are emitted
- * breadth-first in level order, every seed first, then every URL one step away from a seed, and so on, so that the
- * first arrival at a URL is also its shallowest one.
+ * The generated task reads a feed of seed URLs as a feed of the URLs reachable from them, walking each URL reached in
+ * turn. URLs are emitted breadth-first in level order, every seed first, then every URL one step away from a seed, and
+ * so on, so that the first arrival at a URL is also its shallowest one.
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
@@ -47,7 +47,7 @@ export type Source<T> =
  *
  * > [!WARNING]
  * >
- * > - **Incremental**: seeds are emitted as they are pulled and reachable URLs level by level, so the reported feed
+ * > - **Incremental**: seeds are emitted as they are pulled and reachable URLs level by level, so the feed produced
  * >   runs dry as the feed drawn from and `walker` do; no URL reachable from a seed is emitted until the source runs
  * >   dry, so the feed never completes on an endless source.
  * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the
@@ -67,7 +67,7 @@ export type Source<T> =
  * @returns A task emitting the seeds and every URL reachable from them, each as a parsed object
  *
  * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *   reference among them
+ *                     reference among them
  *
  * @example
  *
@@ -89,15 +89,16 @@ export function crawl(
  * Creates a task crawling the URLs reachable from the items of a feed, emitting results derived from what they stand
  * for.
  *
- * Each crawled URL is fed once, whatever the number of links converging on it, and both walked and mapped from that
- * single reading, so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the
- * level order the URLs are crawled in, the results of every seed first, then those of every URL one step away from a
- * seed, and so on.
+ * The generated task reads a feed of seed URLs as a feed of results derived from what the crawled URLs stand for. Each
+ * crawled URL is fed once, whatever the number of links converging on it, and both walked and mapped from that single
+ * reading, so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the level
+ * order the URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed,
+ * and so on.
  *
  * > [!WARNING]
  * >
  * > - **Incremental**: the results of the seeds are emitted as the seeds are pulled and those of the reachable URLs
- * >   level by level, so the reported feed runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
+ * >   level by level, so the feed produced runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
  * >   URL reachable from a seed is fed until the source runs dry, so the feed never completes on an endless source.
  * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as for the single-step
  * >   form, while what a URL stands for is released as soon as it is walked and mapped, so it is never retained
@@ -111,16 +112,17 @@ export function crawl(
  *
  * @typeParam V The type of what a crawled URL stands for
  * @typeParam R The type of the results derived from a crawled URL
+ *
  * @param feeder The function stating what a URL stands for, none if it is to be crawled no further and to contribute
- *   no result
+ *               no result
  * @param walker The function stating the URLs linked from what a URL stands for, none if it is a leaf
  * @param mapper The function stating the results derived from what a URL stands for, either a single result or a
- *   sequence of them, none if it contributes no result
+ *               sequence of them, none if it contributes no result
  *
  * @returns A task emitting the results derived from every crawled URL
  *
  * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *   reference among them
+ *                     reference among them
  *
  * @example
  *

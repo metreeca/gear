@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * CSV parser.
- *
- * @module
- */
-
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { log } from "@metreeca/tape";
@@ -40,11 +34,11 @@ const logger = log(import.meta.url);
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: records are emitted as they are parsed, so the reported feed runs dry as the feed drawn from
+ * > - **Incremental**: records are emitted as they are parsed, so the feed produced runs dry as the feed drawn from
  * >   does.
  * > - **Streaming**: chunks are pulled from the source as records are asked for, so sources of any size are handled
  * >   without holding them in memory and a consumer that stops early releases the source; some chunks are
- * >   nonetheless read ahead of the records actually consumed, and a source reporting the whole text at once is
+ * >   nonetheless read ahead of the records actually consumed, and a source yielding the whole text at once is
  * >   parsed in one go.
  * > - **Stateful**: column labels and part-read rows are carried across draws, so a task invoked per nested feed or
  * >   per run parses each as a document of its own, reading a header row of its own rather than sharing one.
@@ -52,22 +46,24 @@ const logger = log(import.meta.url);
  * > [!WARNING]
  * > Records that cannot be parsed are skipped and reported to the log, leaving the feed to run to completion.
  *
- * @typeParam R The type of the reported records; field values are reported as parsed, without being validated
+ * @typeParam R The type of the records produced; field values are emitted as parsed, without being validated
  *              against it
  *
  * @param options The parsing options
  * @param options.header Reads the first row as column labels, keying records by label rather than by positional
  *                       index; defaults to `false`
- * @param options.skip Ignores empty lines rather than reporting them as records; defaults to `false`
+ * @param options.skip Ignores empty lines rather than emitting them as records; defaults to `false`
  * @param options.trim Strips surrounding whitespace from field values; defaults to `false`
- * @param options.flex Reports records whose field count doesn't match the header, leaving out missing fields and
+ * @param options.flex Emits records whose field count doesn't match the header, leaving out missing fields and
  *                     discarding fields beyond the header, rather than skipping them; defaults to `false`
  * @param options.quote The character wrapping field values; defaults to `"` if unset or empty
  * @param options.delimiter The character separating fields; defaults to `,` if unset or empty
  *
  * @returns A task converting a feed of CSV text or byte chunks into a feed of records
  *
- * @throws Error While the feed is consumed, whatever the source reports while producing chunks
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing chunks
+ *
+ * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
  */
 export function csv<R extends Record = Record>({
 

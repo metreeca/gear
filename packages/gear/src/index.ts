@@ -65,10 +65,9 @@ const locators = new AsyncLocalStorage<<T extends Defined>(service: Service<T>) 
  * Opens an execution for a job, resolves the service lookups the job makes against the bindings it was created with,
  * and disposes the instances constructed along the way once the job settles.
  *
- * Every invocation stands on its own: services are constructed on demand, shared within that invocation alone, and
- * disposed when it ends. Concurrent invocations share no instances. The promise handed back resolves to the value the
- * job produces, settling only after disposal has completed, and rejects if the executor is invoked from within a
- * running execution.
+ * Every invocation stands on its own, sharing no service instance with another. The promise handed back resolves to
+ * the value the job produces, settling only after disposal has completed, and rejects if the executor is invoked from
+ * within a running execution.
  *
  * > [!IMPORTANT]
  * >
@@ -144,11 +143,11 @@ export type Service<T extends Defined> =
  * @param bindings The implementations to be substituted for the duration of each execution
  *
  * @returns An {@link Executor} running a job under `bindings`, rejecting as described there if the job fails, if the
- * disposal of a service fails, or if it is invoked from within a running execution; the returned value holds no
- * service instances of its own and may be reused for independent executions
+ *          disposal of a service fails, or if it is invoked from within a running execution; the returned value holds
+ *          no service instances of its own and may be reused for independent executions
  *
  * @throws {Error} If `bindings` includes more than one binding for the same service, reporting the services bound
- * more than once
+ *                 more than once
  */
 export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
@@ -319,10 +318,10 @@ export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<Se
  * @returns The service instance for the enclosing execution
  *
  * @throws {Error} If called outside an execution, reporting `service`; disposal of the execution's own services
- * counts as outside, as does a callback invoked from work that escaped the execution, such as a timer
+ *                 counts as outside, as does a callback invoked from work that escaped the execution, such as a timer
  *
  * @throws {Error} If the service depends on itself, either directly or through other services, reporting the
- * dependency chain
+ *                 dependency chain
  */
 export function service<T extends Defined>(service: Service<T>): T {
 

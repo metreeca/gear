@@ -22,11 +22,14 @@ npm install @metreeca/gear-url  # this package
 
 # Usage
 
-| Symbol             | Description      |
+| Task               | Description      |
 |--------------------|------------------|
 | [`fetch()`][fetch] | Resource fetcher |
+| [`crawl()`][crawl] | URL graph walker |
 
 [fetch]: https://metreeca.github.io/gear/functions/_metreeca_gear-url.fetch.html
+
+[crawl]: https://metreeca.github.io/gear/functions/_metreeca_gear-url.crawl.html
 
 # Support
 
