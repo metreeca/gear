@@ -22,8 +22,8 @@ import { items } from "@metreeca/flow/feeds";
 /**
  * A possibly asynchronous, possibly absent value.
  *
- * A value supplied either directly or as a promise, or omitted altogether, so that providers hand over whatever they
- * already hold and consumers take absence and asynchrony uniformly.
+ * Absence and asynchrony are taken uniformly, so that a provider hands over whatever it already holds, a value, a
+ * promise or nothing at all.
  *
  * @typeParam T The type of the supplied value
  */
@@ -36,14 +36,14 @@ export type Source<T> =
 /**
  * Creates a task crawling the URLs reachable from the items of a feed.
  *
- * Each item is taken as a crawl seed and `walker` states the URLs linked from a URL, or nothing if it is a leaf. URLs
- * are emitted breadth-first in level order, every seed first, then every URL one step away from a seed, and so on, so
- * that the first arrival at a URL is also its shallowest one.
+ * Each item of the feed is taken as a crawl seed and every URL reached is walked in turn. URLs are emitted
+ * breadth-first in level order, every seed first, then every URL one step away from a seed, and so on, so that the
+ * first arrival at a URL is also its shallowest one.
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
- * `walker` is built from, while deriving results from the crawled URLs belongs to the tasks downstream. Seeds and
- * links are stated either as strings or as {@link URL} objects, but reach `walker` and the feed as parsed objects,
- * each one the crawl's own and safe to be altered.
+ * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
+ * stated either as strings or as {@link URL} objects, but reach `walker` and the feed as parsed objects, each one the
+ * crawl's own and safe to be altered.
  *
  * > [!WARNING]
  * >
@@ -64,8 +64,7 @@ export type Source<T> =
  *
  * @param walker The function stating the URLs linked from a URL, none if it is a leaf
  *
- * @returns A task emitting the URLs of the source feed and every URL reachable from them, each at most once and as a
- *   parsed object
+ * @returns A task emitting the seeds and every URL reachable from them, each as a parsed object
  *
  * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
  *   reference among them
@@ -90,23 +89,20 @@ export function crawl(
  * Creates a task crawling the URLs reachable from the items of a feed, emitting results derived from what they stand
  * for.
  *
- * Each crawled URL is handed to `feeder`, which states what it stands for, a parsed document among them, or nothing if
- * it contributes neither links nor results; `walker` states the URLs linked from it and `mapper` the results derived
- * from it, so that the crawl is driven and harvested from a single reading. Results are emitted in the level order the
- * URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed, and so on.
- *
- * Every URL is fed once, whatever the number of links converging on it, and what it stands for is released as soon as
- * it is walked and mapped, so it is never retained across levels.
+ * Each crawled URL is fed once, whatever the number of links converging on it, and both walked and mapped from that
+ * single reading, so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the
+ * level order the URLs are crawled in, the results of every seed first, then those of every URL one step away from a
+ * seed, and so on.
  *
  * > [!WARNING]
  * >
  * > - **Incremental**: the results of the seeds are emitted as the seeds are pulled and those of the reachable URLs
  * >   level by level, so the reported feed runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
  * >   URL reachable from a seed is fed until the source runs dry, so the feed never completes on an endless source.
- * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as are the seeds and the
- * >   level being crawled, so an unbounded or widely branching graph may exhaust memory.
- * > - **Stateful**: the URLs already crawled decide the ones that follow, so a task invoked per nested feed or per
- * >   run crawls each independently, reaching a URL once per invocation rather than once for the feed as a whole.
+ * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as for the single-step
+ * >   form, while what a URL stands for is released as soon as it is walked and mapped, so it is never retained
+ * >   across levels.
+ * > - **Stateful**: the URLs already crawled decide the ones that follow, as for the single-step form.
  *
  * > [!IMPORTANT]
  * >
@@ -160,55 +156,42 @@ export function crawl<V, R>(...steps:
 	]
 ): Task<string | URL, URL | R> {
 
-	return steps.length === 1 ? navigate(steps[0]) : harvest(steps[0], steps[1], steps[2]);
+	return steps.length === 1
+		? roam(steps[0])
+		: reap(steps[0], steps[1], steps[2]);
 
 
-	function navigate(walker: (url: URL) => Source<Awaitables<string | URL>>): Task<string | URL, URL> {
+	function roam(walker: (url: URL) => Source<Awaitables<string | URL>>): Task<string | URL, URL> {
 
 		return source => items((async function* () {
 
-			const visit = admitting();
+			const admitted = admitting();
 
 			// the seed level, drained before descending so that the first arrival at a URL is its shallowest;
 			// seeds are emitted as they are pulled, so a slow source doesn't withhold the ones already in
 
 			const seeds: URL[] = [];
 
-			for await (const seed of source) {
+			for await (const url of admitted(source)) {
 
-				const url = new URL(seed);
+				seeds.push(url);
 
-				if ( visit(url) ) {
-
-					seeds.push(url);
-
-					yield url;
-
-				}
+				yield url;
 
 			}
 
-			// descend one level at a time, emitting every URL as it is reached for the first time
+			yield* descending(seeds, reach);
 
-			let frontier: readonly URL[] = seeds;
 
-			while ( frontier.length > 0 ) {
+			async function* reach(url: URL, reached: URL[]): AsyncIterable<URL> {
 
-				const reached: URL[] = [];
+				for await (const next of admitted(await walker(url))) {
 
-				for (const url of frontier) {
-					for await (const next of urls(await walker(url))) {
-						if ( visit(next) ) {
+					reached.push(next);
 
-							reached.push(next);
+					yield next;
 
-							yield next;
-
-						}
-					}
 				}
-
-				frontier = reached;
 
 			}
 
@@ -216,7 +199,7 @@ export function crawl<V, R>(...steps:
 
 	}
 
-	function harvest<V, R>(
+	function reap<V, R>(
 		feeder: (url: URL) => Source<V>,
 		walker: (data: V) => Source<Awaitables<string | URL>>,
 		mapper: (data: V) => Source<R | Awaitables<R>>
@@ -224,38 +207,19 @@ export function crawl<V, R>(...steps:
 
 		return source => items((async function* () {
 
-			const visit = admitting();
+			const admitted = admitting();
 
-			// the URLs linked from the seed level, buffered until the source runs dry so that the first arrival at a URL
-			// is its shallowest; seeds are reached as they are pulled, so a slow source doesn't withhold the ones already in
+			// the URLs linked from the seed level, buffered until the source runs dry so that the first arrival at a
+			// URL is its shallowest; seeds are reached as they are pulled, so a slow source doesn't withhold the
+			// ones already in
 
 			const linked: URL[] = [];
 
-			for await (const seed of source) {
-
-				const url = new URL(seed);
-
-				if ( visit(url) ) {
-					yield* reach(url, linked);
-				}
-
+			for await (const url of admitted(source)) {
+				yield* reach(url, linked);
 			}
 
-			// descend one level at a time, reaching every URL as it is admitted for the first time
-
-			let frontier: readonly URL[] = linked;
-
-			while ( frontier.length > 0 ) {
-
-				const reached: URL[] = [];
-
-				for (const url of frontier) {
-					yield* reach(url, reached);
-				}
-
-				frontier = reached;
-
-			}
+			yield* descending(linked, reach);
 
 
 			async function* reach(url: URL, reached: URL[]): AsyncIterable<R> {
@@ -266,8 +230,8 @@ export function crawl<V, R>(...steps:
 
 					yield* items<R>(await mapper(data) ?? []);
 
-					for await (const next of urls(await walker(data))) {
-						if ( visit(next) ) { reached.push(next); }
+					for await (const next of admitted(await walker(data))) {
+						reached.push(next);
 					}
 
 				}
@@ -279,21 +243,23 @@ export function crawl<V, R>(...steps:
 	}
 
 
-	function admitting(): (url: URL) => boolean {
+	function admitting(): (links: Optional<Awaitables<string | URL>>) => AsyncIterable<URL> {
 
-		const visited = new Set<string>();
+		const crawled = new Set<string>();
 
-		return ({ href }) => {
+		return async function* (links) {
 
-			if ( visited.has(href) ) {
+			for await (const link of items(links ?? [])) {
 
-				return false;
+				const url = new URL(link);
 
-			} else {
+				if ( !crawled.has(url.href) ) {
 
-				visited.add(href);
+					crawled.add(url.href);
 
-				return true;
+					yield url;
+
+				}
 
 			}
 
@@ -301,10 +267,23 @@ export function crawl<V, R>(...steps:
 
 	}
 
-	async function* urls(links: Optional<Awaitables<string | URL>>): AsyncIterable<URL> {
+	async function* descending<R>(
+		seeds: readonly URL[],
+		reach: (url: URL, reached: URL[]) => AsyncIterable<R>
+	): AsyncIterable<R> {
 
-		for await (const link of items(links ?? [])) {
-			yield new URL(link);
+		let frontier: readonly URL[] = seeds;
+
+		while ( frontier.length > 0 ) {
+
+			const reached: URL[] = [];
+
+			for (const url of frontier) {
+				yield* reach(url, reached);
+			}
+
+			frontier = reached;
+
 		}
 
 	}
