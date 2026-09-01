@@ -40,6 +40,7 @@ leaf packages: each pulls in the core package transitively and only the librarie
 | [@metreeca/gear-json] | JSON processing tasks                     |
 | [@metreeca/gear-xml]  | XML and HTML processing tasks             |
 | [@metreeca/gear-csv]  | CSV processing tasks                      |
+| [@metreeca/gear-rdf]  | RDF processing tasks                      |
 
 [@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
 
@@ -50,6 +51,8 @@ leaf packages: each pulls in the core package transitively and only the librarie
 [@metreeca/gear-xml]: https://metreeca.github.io/gear/modules/_metreeca_gear-xml.html
 
 [@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
+
+[@metreeca/gear-rdf]: https://metreeca.github.io/gear/modules/_metreeca_gear-rdf.html
 
 # Usage
 
