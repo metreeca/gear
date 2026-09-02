@@ -33,6 +33,15 @@ framework core and its extension packages, each sitting directly under `packages
 The root `package.json` `workspaces` glob (`packages/*`) covers the framework packages, each in its own directory
 immediately under `packages/` (for example `packages/gear`).
 
+# Shared Utilities
+
+Reach for `@metreeca/core` before writing a helper: its `strings`, `numbers`, `arrays` and `structures` entry points
+already cover text tidying, escaping, splitting and templating alongside the common collection and value operations. A
+hand-rolled equivalent duplicates tested code and drifts from it, missing the edge cases the shared one handles.
+
+Keep a local helper only where the shared one genuinely doesn't fit, and record in its doc comment what the difference
+is, so the next reader doesn't take it for an oversight.
+
 # Service Resolution
 
 Calls to `service()` are **NEVER** inlined into a larger expression: always bind the resolved instance to a `const` on a
@@ -53,27 +62,9 @@ vitest transpiles directly from `src/` without requiring a prior build step. The
 specifier to `packages/<package>/src`; the aliases are convention-based and require no manual updates when adding
 packages or subpath exports.
 
-# Git
-
-This is a single monorepo: every package lives under `packages/` within one repository. Contrary to the general "avoid
-`git -C`" guidance in the global tool rules and the `version-manager` skill's Git Command Rules, `git -C <package-path>`
-is **perfectly acceptable** here and preferred for scoping a command to a package subtree, since it lets commands be
-pre-authorised in bulk. This override applies to `git -C` only; the other Git Command Rules (no command chaining, stage
-files by name) still hold.
-
 # Version Management
 
-All workspace packages share the same version, defined in the root `package.json` `version` field. When bumping the
-version, cascade the change to all `packages/**/package.json` — both the package `version` field and any internal
-`@metreeca/gear*` dependency ranges.
+All workspace packages share the root `package.json` version. Beyond the `version` fields the release flow already
+cascades, update the internal `@metreeca/gear*` dependency ranges in every `packages/**/package.json` to match.
 
 When adding, removing, or renaming packages, update the package table in the root `README.md` Usage section to match.
-
-# Documentation Synchronization
-
-For each package, the following descriptions must be kept in sync:
-
-- `package.json`: `description` field
-- `README.md`: first paragraph after badges
-- module doc definition line
-- GitHub repository "About" section (when publishing)
