@@ -48,10 +48,10 @@ async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 }
 
 /**
- * Decodes byte chunks as text.
+ * Decodes response bodies as text.
  */
-function text(chunks: readonly Uint8Array[]): string {
-	return chunks.map(chunk => new TextDecoder().decode(chunk)).join("");
+async function text(responses: readonly Response[]): Promise<string> {
+	return (await Promise.all(responses.map(response => response.text()))).join("");
 }
 
 /**
@@ -89,24 +89,36 @@ describe("fetch", () => {
 
 	describe("streaming", () => {
 
-		it("emits the body of each response as byte chunks", async () => {
+		it("emits the response of each request", async () => {
 
 			const { stub } = transport(({ url }) => new Response(url.endsWith("/one") ? "alpha" : "beta"));
 
-			const chunks = await run(stub, () => fetch()(requests(
+			const responses = await run(stub, () => fetch()(requests(
 				"https://example.com/one",
 				"https://example.com/two"
 			)));
 
-			expect(text(chunks)).toBe("alphabeta");
+			expect(await text(responses)).toBe("alphabeta");
 
 		});
 
-		it("yields no chunk for a response without a body", async () => {
+		it("emits a response without a body", async () => {
 
 			const { stub } = transport(() => new Response(null, { status: 204 }));
 
-			expect(await run(stub, () => fetch()(requests("https://example.com/")))).toEqual([]);
+			const responses = await run(stub, () => fetch()(requests("https://example.com/")));
+
+			expect(responses.map(({ status, body }) => ({ status, body }))).toEqual([{ status: 204, body: null }]);
+
+		});
+
+		it("emits a response with its body unread", async () => {
+
+			const { stub } = transport(() => new Response("body"));
+
+			const responses = await run(stub, () => fetch()(requests("https://example.com/")));
+
+			expect(responses[0]?.bodyUsed).toBe(false);
 
 		});
 
@@ -116,44 +128,40 @@ describe("fetch", () => {
 
 			await executor(bind(createFetch, () => stub))(async () => {
 
-				const chunks = fetch()(requests(
+				const responses = fetch()(requests(
 					"https://example.com/one",
 					"https://example.com/two"
 				))[Symbol.asyncIterator]();
 
-				await chunks.next();
+				await responses.next();
 
 				expect(exchanges).toHaveLength(1);
 
-				await chunks.return?.();
+				await responses.return?.();
 
 			});
 
 		});
 
-		it("cancels the response when the consumer stops early", async () => {
+		it("draws no further response when the consumer stops early", async () => {
 
-			const state = { cancelled: false };
-
-			const { stub } = transport(() => new Response(new ReadableStream({
-
-				pull(controller) { controller.enqueue(new TextEncoder().encode("chunk")); },
-				cancel() { state.cancelled = true; } // recording an effect has no functional equivalent
-
-			})));
+			const { exchanges, stub } = transport(() => new Response("body"));
 
 			await executor(bind(createFetch, () => stub))(async () => {
 
-				const chunks = fetch()(requests("https://example.com/"))[Symbol.asyncIterator]();
+				const responses = fetch()(requests(
+					"https://example.com/one",
+					"https://example.com/two"
+				))[Symbol.asyncIterator]();
 
-				await chunks.next();
-				await chunks.return?.(); // as a downstream take() would, once satisfied
+				await responses.next();
+				await responses.return?.(); // as a downstream take() would, once satisfied
 
 			});
 
 			await delay(10); // teardown propagates upstream asynchronously
 
-			expect(state.cancelled).toBe(true);
+			expect(exchanges).toHaveLength(1);
 
 		});
 
@@ -187,8 +195,8 @@ describe("fetch", () => {
 
 			await executor(bind(createFetch, () => stub))(async () => {
 
-				expect(text(await collect(task(requests("https://example.com/one"))))).toBe("alpha");
-				expect(text(await collect(task(requests("https://example.com/two"))))).toBe("beta");
+				expect(await text(await collect(task(requests("https://example.com/one"))))).toBe("alpha");
+				expect(await text(await collect(task(requests("https://example.com/two"))))).toBe("beta");
 
 			});
 
@@ -196,13 +204,17 @@ describe("fetch", () => {
 
 		});
 
-		it("fails on a request stating a malformed URL", async () => {
+		it("skips a request stating a malformed URL", async () => {
 
-			const { stub } = transport(() => new Response("body"));
+			const { exchanges, stub } = transport(() => new Response("body"));
 
-			// screening malformed URLs is left to a monitoring middleware layered over the client by the caller
+			const responses = await run(stub, () => fetch()(requests(
+				"malformed",
+				"https://example.com/"
+			)));
 
-			await expect(run(stub, () => fetch()(requests("malformed")))).rejects.toThrow(TypeError);
+			expect(exchanges.map(({ url }) => url)).toEqual(["https://example.com/"]);
+			expect(responses.map(({ status }) => status)).toEqual([200]);
 
 		});
 
@@ -309,12 +321,12 @@ describe("fetch", () => {
 				: new Response("body")
 			);
 
-			const chunks = await run(stub, () => fetch()(requests(
+			const responses = await run(stub, () => fetch()(requests(
 				"https://example.com/gone",
 				"https://example.com/here"
 			)));
 
-			expect(text(chunks)).toBe("body");
+			expect(responses.map(({ status }) => status)).toEqual([200]);
 
 		});
 

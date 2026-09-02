@@ -34,9 +34,9 @@ type Outline = {
 
 
 /**
- * Creates a feed carrying the given chunks.
+ * Creates a feed carrying the given documents.
  */
-function chunks(...values: readonly (string | Uint8Array | Response)[]): Feed<string | Uint8Array | Response> {
+function documents(...values: readonly (string | Response)[]): Feed<string | Response> {
 	return items((async function* () { yield* values; })());
 }
 
@@ -66,7 +66,7 @@ describe("xml", () => {
 
 	it("emits the parsed document as a single value", async () => {
 
-		const [ document, ...others ] = await chunks(`<item id="1"><label>alpha</label></item>`)(xml())(toArray());
+		const [ document, ...others ] = await documents(`<item id="1"><label>alpha</label></item>`)(xml())(toArray());
 
 		expect(others).toEqual([]);
 		expect(outline(document)).toEqual([
@@ -75,9 +75,20 @@ describe("xml", () => {
 
 	});
 
+	it("emits a document per item", async () => {
+
+		const parsed = await documents(`<item id="1"/>`, `<item id="2"/>`)(xml())(toArray());
+
+		expect(parsed.map(document => outline(document))).toEqual([
+			[{ name: "item", attributes: { id: "1" }, children: [] }],
+			[{ name: "item", attributes: { id: "2" }, children: [] }]
+		] satisfies readonly (readonly Outline[])[]);
+
+	});
+
 	it("emits the character data of the document", async () => {
 
-		const [ document ] = await chunks(`<item><label>alpha</label><label>beta</label></item>`)(xml())(toArray());
+		const [ document ] = await documents(`<item><label>alpha</label><label>beta</label></item>`)(xml())(toArray());
 
 		expect(text(document)).toBe("alphabeta");
 
@@ -85,7 +96,7 @@ describe("xml", () => {
 
 	it("preserves element and attribute name case", async () => {
 
-		const [ document ] = await chunks(`<Item ID="1"/>`)(xml())(toArray());
+		const [ document ] = await documents(`<Item ID="1"/>`)(xml())(toArray());
 
 		expect(outline(document)).toEqual([
 			{ name: "Item", attributes: { ID: "1" }, children: [] }
@@ -95,7 +106,7 @@ describe("xml", () => {
 
 	it("retains namespace prefixes as part of the name", async () => {
 
-		const [ document ] = await chunks(`<r xmlns:d="urn:x"><d:b/></r>`)(xml())(toArray());
+		const [ document ] = await documents(`<r xmlns:d="urn:x"><d:b/></r>`)(xml())(toArray());
 
 		expect(outline(document)).toEqual([
 			{
@@ -108,17 +119,19 @@ describe("xml", () => {
 
 	it("decodes entity references", async () => {
 
-		const [ document ] = await chunks(`<item>a &amp; b</item>`)(xml())(toArray());
+		const [ document ] = await documents(`<item>a &amp; b</item>`)(xml())(toArray());
 
 		expect(text(document)).toBe("a & b");
 
 	});
 
-	it("joins documents split across chunks", async () => {
+	it("strips a byte order mark", async () => {
 
-		const [ document ] = await chunks(`<item id="1"><lab`, `el>alp`, `ha</label></item>`)(xml())(toArray());
+		const [ document ] = await documents(`﻿<item id="1"/>`)(xml())(toArray());
 
-		expect(text(document)).toBe("alpha");
+		expect(outline(document)).toEqual([
+			{ name: "item", attributes: { id: "1" }, children: [] }
+		] satisfies readonly Outline[]);
 
 	});
 
@@ -126,8 +139,8 @@ describe("xml", () => {
 
 		const task = xml();
 
-		const [ first ] = await chunks(`<item id="1"/>`)(task)(toArray());
-		const [ second ] = await chunks(`<item id="2"/>`)(task)(toArray());
+		const [ first ] = await documents(`<item id="1"/>`)(task)(toArray());
+		const [ second ] = await documents(`<item id="2"/>`)(task)(toArray());
 
 		expect(outline(first)).toEqual([
 			{ name: "item", attributes: { id: "1" }, children: [] }
@@ -139,15 +152,15 @@ describe("xml", () => {
 
 	});
 
-	it("yields no value if the source produces no chunks", async () => {
+	it("yields no value if the source produces no documents", async () => {
 
-		expect(await chunks()(xml())(toArray())).toEqual([]);
+		expect(await documents()(xml())(toArray())).toEqual([]);
 
 	});
 
-	it("yields no value if the source produces only whitespace", async () => {
+	it("yields no value for a document holding only whitespace", async () => {
 
-		expect(await chunks(" \n\t ")(xml())(toArray())).toEqual([]);
+		expect(await documents(" \n\t ")(xml())(toArray())).toEqual([]);
 
 	});
 
@@ -155,7 +168,7 @@ describe("xml", () => {
 
 		// parsing is forgiving: the element is closed at the end of the input rather than reported as an error
 
-		const [ document ] = await chunks(`<item><label>alpha`)(xml())(toArray());
+		const [ document ] = await documents(`<item><label>alpha`)(xml())(toArray());
 
 		expect(outline(document)).toEqual([
 			{ name: "item", attributes: {}, children: [{ name: "label", attributes: {}, children: [] }] }
@@ -167,7 +180,7 @@ describe("xml", () => {
 
 		const failing = items((async function* () {
 
-			yield `<item id="1"`;
+			yield `<item id="1"/>`;
 
 			throw new Error("broken source"); // told apart from failures raised by the task by its message
 
@@ -177,16 +190,13 @@ describe("xml", () => {
 
 	});
 
-	it("drains the source before emitting the document", async () => {
+	it("emits a document as soon as it is drawn", async () => {
 
-		const count = 1_000;
 		const state = { pulled: 0 }; // records how far the task pulls the source
 
 		async function* source(): AsyncIterable<string> {
 
-			yield "<items>";
-
-			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
+			for (const index of Array.from({ length: 10 }, (_, i) => i)) { // generators have no functional equivalent
 
 				state.pulled = index+1;
 
@@ -194,35 +204,44 @@ describe("xml", () => {
 
 			}
 
-			yield "</items>";
-
 		}
 
-		const documents = xml()(items(source()))[Symbol.asyncIterator]();
+		const parsed = xml()(items(source()))[Symbol.asyncIterator]();
 
-		await documents.next();
+		await parsed.next();
 
-		expect(state.pulled).toBe(count);
+		expect(state.pulled).toBe(1);
+
+		await parsed.return?.();
 
 	});
 
 	describe("responses", () => {
 
 		/**
-		 * Creates a response reporting the given retrieval URL.
+		 * Creates a response stating the given retrieval URL and content type.
 		 *
 		 * `Response` computes `url` from the exchange that produced it, so a synthesised one always reports an empty
-		 * string: the own property shadows the prototype getter to stand in for a real exchange.
+		 * string: the own property shadows the prototype getter to stand in for a real exchange. The content type is
+		 * stated as empty rather than left out, as the constructor infers one from the body.
 		 */
-		function response(body: string, url?: string): Response {
-			return url === undefined ? new Response(body) : Object.defineProperty(new Response(body), "url", {
-				value: url
-			});
+		function response(body: BodyInit | null, { url, type }: {
+
+			readonly url?: string;
+			readonly type?: string;
+
+		} = {}): Response {
+
+			const response = new Response(body, { headers: { "Content-Type": type ?? "" } });
+
+			return url === undefined ? response : Object.defineProperty(response, "url", { value: url });
+
 		}
+
 
 		it("reads the response body as the document", async () => {
 
-			const [ document ] = await chunks(response(`<item><label>alpha</label></item>`))(xml())(toArray());
+			const [ document ] = await documents(response(`<item><label>alpha</label></item>`))(xml())(toArray());
 
 			expect(text(document)).toBe("alpha");
 
@@ -230,7 +249,8 @@ describe("xml", () => {
 
 		it("records the retrieval URL as an xml:base attribute on the root", async () => {
 
-			const [ document ] = await chunks(response(`<item/>`, "https://example.com/a/b"))(xml())(toArray());
+			const [ document ] = await documents(response(`<item/>`, { url: "https://example.com/a/b" }))
+			(xml())(toArray());
 
 			expect(outline(document)).toEqual([
 				{ name: "item", attributes: { "xml:base": "https://example.com/a/b" }, children: [] }
@@ -240,7 +260,8 @@ describe("xml", () => {
 
 		it("records the retrieval URL on every root element", async () => {
 
-			const [ document ] = await chunks(response(`<a/><b/>`, "https://example.com/a/b"))(xml())(toArray());
+			const [ document ] = await documents(response(`<a/><b/>`, { url: "https://example.com/a/b" }))
+			(xml())(toArray());
 
 			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
 				"https://example.com/a/b",
@@ -249,10 +270,26 @@ describe("xml", () => {
 
 		});
 
+		it("records the retrieval URL of each response on its own document", async () => {
+
+			const parsed = await documents(
+				response(`<item id="1"/>`, { url: "https://example.com/one" }),
+				response(`<item id="2"/>`, { url: "https://example.com/two" })
+			)(xml())(toArray());
+
+			expect(parsed.flatMap(document => outline(document).map(({ attributes }) => attributes["xml:base"])))
+				.toEqual([
+					"https://example.com/one",
+					"https://example.com/two"
+				]);
+
+		});
+
 		it("resolves a declared xml:base against the retrieval URL", async () => {
 
-			const [ document ] = await chunks(response(`<item xml:base="../c/"/>`, "https://example.com/a/b"))
-			(xml())(toArray());
+			const [ document ] = await documents(response(`<item xml:base="../c/"/>`, {
+				url: "https://example.com/a/b"
+			}))(xml())(toArray());
 
 			expect(outline(document)).toEqual([
 				{ name: "item", attributes: { "xml:base": "https://example.com/c/" }, children: [] }
@@ -262,7 +299,7 @@ describe("xml", () => {
 
 		it("leaves a declared xml:base untouched without a retrieval URL", async () => {
 
-			const [ document ] = await chunks(`<item xml:base="https://example.net/x"/>`)(xml())(toArray());
+			const [ document ] = await documents(`<item xml:base="https://example.net/x"/>`)(xml())(toArray());
 
 			expect(outline(document)).toEqual([
 				{ name: "item", attributes: { "xml:base": "https://example.net/x" }, children: [] }
@@ -272,7 +309,7 @@ describe("xml", () => {
 
 		it("records nothing for a response reporting no URL", async () => {
 
-			const [ document ] = await chunks(response(`<item/>`))(xml())(toArray());
+			const [ document ] = await documents(response(`<item/>`))(xml())(toArray());
 
 			expect(outline(document)).toEqual([
 				{ name: "item", attributes: {}, children: [] }
@@ -280,9 +317,9 @@ describe("xml", () => {
 
 		});
 
-		it("records nothing for text or byte chunks", async () => {
+		it("records nothing for a document given as text", async () => {
 
-			const [ document ] = await chunks(`<item/>`)(xml())(toArray());
+			const [ document ] = await documents(`<item/>`)(xml())(toArray());
 
 			expect(outline(document)).toEqual([
 				{ name: "item", attributes: {}, children: [] }
@@ -290,38 +327,68 @@ describe("xml", () => {
 
 		});
 
-		it("joins a response with surrounding text chunks", async () => {
+		it("decodes the response body as the charset it states", async () => {
 
-			const [ document ] = await chunks(`<item>`, response(`alpha`), `</item>`)(xml())(toArray());
+			const bytes = Buffer.from(`<item>città</item>`, "latin1");
 
-			expect(text(document)).toBe("alpha");
-
-		});
-
-	});
-
-	describe("decoding", () => {
-
-		it("decodes multibyte characters split across byte chunks", async () => {
-
-			const bytes = Buffer.from(`<item>città</item>`, "utf8");
-			const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-			const [ document ] = await chunks(bytes.subarray(0, cut), bytes.subarray(cut))(xml())(toArray());
-
-			expect(text(document)).toBe("città");
-
-		});
-
-		it("decodes multibyte characters split across byte chunks resuming after text chunks", async () => {
-
-			const bytes = Buffer.from(`città</item>`, "utf8");
-			const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-			const [ document ] = await chunks(`<item>`, bytes.subarray(0, cut), bytes.subarray(cut))
+			const [ document ] = await documents(response(bytes, { type: "application/xml; charset=ISO-8859-1" }))
 			(xml())(toArray());
 
 			expect(text(document)).toBe("città");
+
+		});
+
+		it("decodes the response body as UTF-8 where it states no charset", async () => {
+
+			const bytes = Buffer.from(`<item>città</item>`, "utf8");
+
+			const [ document ] = await documents(response(bytes))(xml())(toArray());
+
+			expect(text(document)).toBe("città");
+
+		});
+
+		it("strips a byte order mark from the response body", async () => {
+
+			const bytes = Buffer.from(`﻿<item id="1"/>`, "utf8");
+
+			const [ document ] = await documents(response(bytes, { type: "application/xml; charset=utf-8" }))
+			(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { id: "1" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("reads a response stating a content type other than XML", async () => {
+
+			// a mis-declared type is reported to the log and read all the same, as parsing never fails anyway
+
+			const [ document ] = await documents(response(`<item id="1"/>`, { type: "text/plain" }))(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { id: "1" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("reads a response stating an unknown charset as UTF-8", async () => {
+
+			// a charset the platform doesn't decode is reported to the log and the body read as UTF-8 all the same
+
+			const bytes = Buffer.from(`<item>città</item>`, "utf8");
+
+			const [ document ] = await documents(response(bytes, { type: "application/xml; charset=bogus" }))
+			(xml())(toArray());
+
+			expect(text(document)).toBe("città");
+
+		});
+
+		it("yields no value for a response without a body", async () => {
+
+			expect(await documents(response(null))(xml())(toArray())).toEqual([]);
 
 		});
 

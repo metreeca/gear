@@ -32,9 +32,9 @@ type Item = {
 
 
 /**
- * Creates a feed carrying the given chunks.
+ * Creates a feed carrying the given documents.
  */
-function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
+function documents(...values: readonly (string | Response)[]): Feed<string | Response> {
 	return items((async function* () { yield* values; })());
 }
 
@@ -42,19 +42,23 @@ function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint
 
 describe("json", () => {
 
-	it("emits the parsed document as a single value", async () => {
+	it("emits a value per document", async () => {
 
-		const values = await chunks(`{ "id": "1", "label": "alpha" }`)(json<Item>())(toArray());
+		const values = await documents(
+			`{ "id": "1", "label": "alpha" }`,
+			`{ "id": "2", "label": "beta" }`
+		)(json<Item>())(toArray());
 
 		expect(values).toEqual([
-			{ id: "1", label: "alpha" }
+			{ id: "1", label: "alpha" },
+			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
 	});
 
 	it("emits documents rooted at values other than objects", async () => {
 
-		const values = await chunks(`[1, "alpha", null]`)(json<Value>())(toArray());
+		const values = await documents(`[1, "alpha", null]`)(json<Value>())(toArray());
 
 		expect(values).toEqual([
 			[1, "alpha", null]
@@ -64,7 +68,7 @@ describe("json", () => {
 
 	it("emits documents rooted at scalar values", async () => {
 
-		const values = await chunks(`42`)(json<Value>())(toArray());
+		const values = await documents(`42`)(json<Value>())(toArray());
 
 		expect(values).toEqual([
 			42
@@ -72,45 +76,42 @@ describe("json", () => {
 
 	});
 
-	it("joins documents split across chunks", async () => {
-
-		const values = await chunks(`{ "id": "1", `, `"label": "al`, `pha" }`)(json<Item>())(toArray());
-
-		expect(values).toEqual([
-			{ id: "1", label: "alpha" }
-		] satisfies readonly Item[]);
-
-	});
-
 	it("parses each application as a document of its own", async () => {
 
 		const task = json<Item>();
 
-		expect(await chunks(`{ "id": "1", "label": "alpha" }`)(task)(toArray())).toEqual([
+		expect(await documents(`{ "id": "1", "label": "alpha" }`)(task)(toArray())).toEqual([
 			{ id: "1", label: "alpha" }
 		] satisfies readonly Item[]);
 
-		expect(await chunks(`{ "id": "2", "label": "beta" }`)(task)(toArray())).toEqual([
+		expect(await documents(`{ "id": "2", "label": "beta" }`)(task)(toArray())).toEqual([
 			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
 	});
 
-	it("yields no value if the source produces no chunks", async () => {
+	it("yields no value if the source produces no documents", async () => {
 
-		expect(await chunks()(json())(toArray())).toEqual([]);
+		expect(await documents()(json())(toArray())).toEqual([]);
 
 	});
 
-	it("yields no value if the source produces only whitespace", async () => {
+	it("yields no value for a document holding only whitespace", async () => {
 
-		expect(await chunks(" \n\t ")(json())(toArray())).toEqual([]);
+		expect(await documents(" \n\t ")(json())(toArray())).toEqual([]);
 
 	});
 
 	it("skips documents that cannot be parsed", async () => {
 
-		expect(await chunks(`{ "id": "1", `)(json())(toArray())).toEqual([]);
+		const values = await documents(
+			`{ "id": "1", `,
+			`{ "id": "2", "label": "beta" }`
+		)(json<Item>())(toArray());
+
+		expect(values).toEqual([
+			{ id: "2", label: "beta" }
+		] satisfies readonly Item[]);
 
 	});
 
@@ -118,7 +119,7 @@ describe("json", () => {
 
 		const failing = items((async function* () {
 
-			yield `{ "id": "1", `;
+			yield `{ "id": "1", "label": "alpha" }`;
 
 			throw new Error("broken source"); // told apart from failures raised by the task by its message
 
@@ -128,73 +129,142 @@ describe("json", () => {
 
 	});
 
-	it("drains the source before emitting the value", async () => {
+	it("emits a value as soon as its document is drawn", async () => {
 
-		const count = 1_000;
 		const state = { pulled: 0 }; // records how far the task pulls the source
 
 		async function* source(): AsyncIterable<string> {
 
-			yield "[";
-
-			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
+			for (const index of Array.from({ length: 10 }, (_, i) => i)) { // generators have no functional equivalent
 
 				state.pulled = index+1;
 
-				yield `${index > 0 ? "," : ""}{"id":"${index}","label":"label-${index}"}`;
+				yield `{ "id": "${index}", "label": "label-${index}" }`;
 
 			}
 
-			yield "]";
-
 		}
 
-		const values = json<readonly Item[]>()(items(source()))[Symbol.asyncIterator]();
+		const values = json<Item>()(items(source()))[Symbol.asyncIterator]();
 
-		await values.next();
+		expect((await values.next()).value).toEqual({ id: "0", label: "label-0" } satisfies Item);
+		expect(state.pulled).toBe(1);
 
-		expect(state.pulled).toBe(count);
+		await values.return?.();
 
 	});
 
-	describe("decoding", () => {
+	describe("responses", () => {
 
-		it("decodes multibyte characters split across byte chunks", async () => {
+		/**
+		 * Creates a response stating the given content type, none if it is omitted.
+		 *
+		 * The field is stated as empty rather than left out, as the `Response` constructor infers one from the body.
+		 */
+		function response(body: BodyInit | null, type?: string): Response {
+			return new Response(body, { headers: { "Content-Type": type ?? "" } });
+		}
 
-			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
-			const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
 
-			const values = await chunks(bytes.subarray(0, cut), bytes.subarray(cut))(json<Item>())(toArray());
+		it("reads the response body as the document", async () => {
 
-			expect(values).toEqual([
-				{ id: "1", label: "città" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("decodes multibyte characters split across byte chunks resuming after text chunks", async () => {
-
-			const bytes = Buffer.from(`città" }`, "utf8");
-			const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-			const values = await chunks(`{ "id": "1", "label": "`, bytes.subarray(0, cut), bytes.subarray(cut))
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/json"))
 			(json<Item>())(toArray());
 
 			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
+
+		});
+
+		it("decodes the response body as UTF-8", async () => {
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
+
+			const values = await documents(response(bytes, "application/json"))(json<Item>())(toArray());
+
+			expect(values).toEqual([
 				{ id: "1", label: "città" }
 			] satisfies readonly Item[]);
 
 		});
 
-		it("skips documents whose byte sequences are left truncated by a switch to text", async () => {
+		it("reads a response stating the UTF-8 charset under any of its labels", async () => {
 
-			const bytes = Buffer.from(`{ "id": "1", "label": "città`, "utf8");
-			const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/json; charset=UTF8"))
+			(json<Item>())(toArray());
 
-			// the withheld bytes are released at the end of the source rather than where the text resumes, so the
-			// replacement character trails the document rather than standing in for the truncated sequence
+			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
 
-			expect(await chunks(bytes.subarray(0, cut), `" }`)(json<Item>())(toArray())).toEqual([]);
+		});
+
+		it("reads a response stating a charset other than UTF-8 as UTF-8", async () => {
+
+			// JSON exchanged between systems is encoded as UTF-8, as RFC 8259 § 8.1 prescribes: a body stating
+			// another charset is reported to the log and read all the same, its undecodable bytes standing in as
+			// replacement characters
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "latin1");
+
+			const values = await documents(response(bytes, "application/json; charset=ISO-8859-1"))
+			(json<Item>())(toArray());
+
+			expect(values).toEqual([
+				{ id: "1", label: "citt�" }
+			] satisfies readonly Item[]);
+
+		});
+
+		it("yields no value for a response without a body", async () => {
+
+			expect(await documents(response(null, "application/json"))(json())(toArray())).toEqual([]);
+
+		});
+
+		it("reads a response stating a JSON-based content type", async () => {
+
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/ld+json"))
+			(json<Item>())(toArray());
+
+			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
+
+		});
+
+		it("reads a response stating a content type with parameters", async () => {
+
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/JSON; charset=utf-8"))
+			(json<Item>())(toArray());
+
+			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
+
+		});
+
+		it("reads a response stating no content type", async () => {
+
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`))(json<Item>())(toArray());
+
+			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
+
+		});
+
+		it("reads a response stating a content type other than JSON", async () => {
+
+			// a mis-declared type is reported to the log and read all the same, as the parser tells JSON apart anyway
+
+			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "text/html"))
+			(json<Item>())(toArray());
+
+			expect(values).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Item[]);
 
 		});
 

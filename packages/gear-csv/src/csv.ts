@@ -16,10 +16,22 @@
 
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
+import { parseItem } from "@metreeca/http";
 import { log } from "@metreeca/tape";
 import { parse } from "csv-parse";
 import { pipeline, Readable } from "node:stream";
 import type { Record } from "./index.js";
+
+
+/**
+ * The media types a CSV document is served under.
+ *
+ * Matches the registered `text/csv` and the unregistered `application/csv` a good many sources state instead. No
+ * structured syntax suffix is registered for CSV, so no `+csv` type is recognised.
+ *
+ * @see {@link https://www.rfc-editor.org/rfc/rfc4180#section-4.1 RFC 4180 § 4.1 - MIME Type Registration of text/csv}
+ */
+const CSVType = /^(?:text|application)\/csv$/i;
 
 
 const logger = log(import.meta.url);
@@ -30,18 +42,31 @@ const logger = log(import.meta.url);
 /**
  * Creates a CSV parser.
  *
- * The generated task reads a feed of CSV text or byte chunks as a feed of records, one {@link Record} per data row.
+ * The generated task reads a feed of CSV documents as a feed of records, one {@link Record} per data row; a document
+ * is given either as text or as a response carrying it as its body, and is read on its own, header row included.
+ *
+ * A response carrying no body contributes no record.
+ *
+ * Response bodies are decoded as the `charset` parameter of the content type states, and as UTF-8 where it states
+ * none, whatever the US-ASCII default carried by the `text` media types, as UTF-8 is what CSV is exchanged under in
+ * practice. A byte order mark opening a document is stripped, both from text and from a body decoded under a Unicode
+ * charset.
+ *
+ * A response stating a content type other than `text/csv` or `application/csv`, or a charset the platform doesn't
+ * decode, is reported to the log and read all the same, the body decoded as UTF-8 where the charset is not known, so
+ * that a mis-declared source is diagnosed without being shut out: CSV is served under `text/plain` and vendor types
+ * as readily as under `text/csv`.
  *
  * > [!NOTE]
  * >
  * > - **Incremental**: records are emitted as they are parsed, so the feed produced runs dry as the feed drawn from
  * >   does.
- * > - **Streaming**: chunks are pulled from the source as records are asked for, so sources of any size are handled
- * >   without holding them in memory and a consumer that stops early releases the source; some chunks are
- * >   nonetheless read ahead of the records actually consumed, and a source yielding the whole text at once is
- * >   parsed in one go.
- * > - **Stateful**: column labels and part-read rows are carried across draws, so a task invoked per nested feed or
- * >   per run parses each as a document of its own, reading a header row of its own rather than sharing one.
+ * > - **Streaming**: documents are drawn one at a time and a response body is pulled as records are asked for, so
+ * >   resources of any size are handled without holding them in memory and a consumer that stops early releases the
+ * >   source; a document given as text is nonetheless parsed in one go, and some of a body is read ahead of the
+ * >   records actually consumed.
+ * > - **Stateless**: every document is parsed on its own, reading a header row of its own, so the outcome is
+ * >   unaffected by how the feed is split across nested feeds or runs.
  *
  * > [!WARNING]
  * > Records that cannot be parsed are skipped and reported to the log, leaving the feed to run to completion.
@@ -59,11 +84,13 @@ const logger = log(import.meta.url);
  * @param options.quote The character wrapping field values; defaults to `"` if unset or empty
  * @param options.delimiter The character separating fields; defaults to `,` if unset or empty
  *
- * @returns A task converting a feed of CSV text or byte chunks into a feed of records
+ * @returns A task converting a feed of CSV documents, given as text or as responses, into a feed of records
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing chunks
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing documents, or whatever
+ *                 reading the body of a response reports
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
+ * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
  */
 export function csv<R extends Record = Record>({
 
@@ -87,38 +114,99 @@ export function csv<R extends Record = Record>({
 	readonly quote?: string
 	readonly delimiter?: string
 
-} = {}): Task<string | Uint8Array, R> {
+} = {}): Task<string | Response, R> {
 
-	return chunks => items((async function* () {
+	return documents => items((async function* () {
 
-		// built per application, so nothing is read until the first record is pulled
+		for await (const document of documents) {
 
-		const parser = parse({
+			const source = document instanceof Response ? read(document) : Readable.from([document]);
 
-			columns: header === true,
+			// built per document, so nothing is read until the first record is pulled
 
-			quote: quote || "\"",
-			delimiter: delimiter || ",",
+			const parser = parse({
 
-			skipEmptyLines: skip === true,
-			trim: trim === true,
-			relaxColumnCount: flex === true,
+				columns: header === true,
 
-			skipRecordsWithError: true,
-			onSkip: error => void logger.warn`(${error?.lines}) malformed record (${error?.message})`
+				quote: quote || "\"",
+				delimiter: delimiter || ",",
 
-		});
+				bom: true,
 
-		// `pipeline()` rather than `pipe()`, to destroy the source when the consumer stops early
-		// piped rather than handed the whole text, which would buffer every record
-		// the idle callback keeps source failures from throwing unhandled: they are reported on the parser
+				skipEmptyLines: skip === true,
+				trim: trim === true,
+				relaxColumnCount: flex === true,
 
-		pipeline(Readable.from(chunks), parser, () => {});
+				skipRecordsWithError: true,
+				onSkip: error => void logger.warn`(${error?.lines}) malformed record (${error?.message})`
 
-		// delegation keeps the pull chain intact, forwarding a downstream `return()` to the parser
+			});
 
-		yield* parser;
+			// records are parsed as the source is pulled, no document buffered whole, and the chain is torn down
+			// both ways: stopping early releases the source, a source failure surfaces on the parser
+
+			pipeline(source, parser, () => {});
+
+			// delegation keeps the pull chain intact, forwarding a downstream `return()` to the parser
+
+			yield* parser;
+
+		}
 
 	})());
+
+
+	function read(response: Response): Readable {
+
+		const [ type, parameters ] = parseItem(response.headers.get("Content-Type"));
+		const charset = parameters.get("charset") || "UTF-8";
+
+		if ( type && !CSVType.test(type) ) {
+			logger.warn`unexpected <${type}> content type`;
+		}
+
+		const decoder = decode(charset);
+
+		if ( decoder === undefined ) {
+			logger.warn`unknown <${charset}> charset`;
+		}
+
+		if ( response.body === null ) {
+
+			return Readable.from([]);
+
+		} else {
+
+			return Readable.from(text(response.body, decoder ?? new TextDecoder()));
+
+		}
+
+	}
+
+	async function* text(body: ReadableStream<Uint8Array>, decoder: TextDecoder): AsyncIterable<string> {
+
+		for await (const chunk of body) {
+
+			yield decoder.decode(chunk, { stream: true }); // chunk by chunk, so that split multibyte sequences survive
+
+		}
+
+		yield decoder.decode(); // whatever the last chunk left withheld
+
+	}
+
+	function decode(charset: string): undefined | TextDecoder {
+
+		try {
+
+			return new TextDecoder(charset);
+
+		} catch {
+
+			return undefined;
+
+		}
+
+	}
 
 }

@@ -49,6 +49,7 @@
   "dependencies": {
     "@metreeca/core": "^0.9.22",
     "@metreeca/flow": "^0.9.21",
+    "@metreeca/http": "^0.1.0",
     "@metreeca/tape": "^0.10.0"
   },
   "devDependencies": {

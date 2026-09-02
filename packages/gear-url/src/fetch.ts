@@ -19,7 +19,9 @@ import { items } from "@metreeca/flow/feeds";
 import { service } from "@metreeca/gear";
 import { createFetch, type Middleware } from "@metreeca/http";
 import { headers } from "@metreeca/http/headers";
+import { monitor } from "@metreeca/http/monitor";
 import { transport } from "@metreeca/http/transport";
+import { log } from "@metreeca/tape";
 
 
 /**
@@ -51,17 +53,22 @@ const Accept = "text/html,"
 	+"*/*;q=0.8";
 
 
+const logger = log(import.meta.url);
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Creates a resource exchange task.
  *
- * The generated task reads a feed of requests as a feed of byte chunks, emitting the body of each response as its
- * chunks are received; requests are given as accepted by the standard `fetch()` function, that is as URL strings,
+ * The generated task reads a feed of requests as a feed of
+ * {@link https://developer.mozilla.org/docs/Web/API/Response Response} objects, each emitted as soon as its head is
+ * received, with the body left unread for the consumer to draw or discard; a response carrying no body is emitted all
+ * the same.
+ *
+ * Requests are given as accepted by the standard `fetch()` function, that is as URL strings,
  * {@link https://developer.mozilla.org/docs/Web/API/URL URL} objects or
  * {@link https://developer.mozilla.org/docs/Web/API/Request Request} objects.
- *
- * A response without a body contributes no chunks.
  *
  * Exchanges are routed through the fetch client resolved from the enclosing
  * {@link @metreeca/gear!index.executor execution}, so that the transport is chosen when the task is run rather than
@@ -75,23 +82,27 @@ const Accept = "text/html,"
  * Content coding is left to the transport, which states the codings it accepts and decodes the body before it reaches
  * the consumer, so that no `Accept-Encoding` field is stated here and no body is handed over still compressed.
  *
+ * Every exchange is reported to the log as it is performed, so that a run leaves a trace of the resources it drew on
+ * and of the ones it was denied; requests are reported as they are stated, before `middlewares` are given a chance to
+ * alter them.
+ *
  * > [!NOTE]
  * >
- * > - **Incremental**: chunks are emitted as they are received, so the feed produced runs dry as the feed drawn from
- * >   does.
- * > - **Streaming**: responses are drawn one at a time and chunk by chunk, none retained, so resources of any size
- * >   are handled without holding them in memory and a consumer that stops early cancels the response.
+ * > - **Incremental**: responses are emitted as they are received, so the feed produced runs dry as the feed drawn
+ * >   from does.
+ * > - **Streaming**: responses are drawn one at a time and handed over with the body unread, none retained, so
+ * >   resources of any size are handled without holding them in memory, as long as each body is read or cancelled
+ * >   before the next response is drawn.
  * > - **Stateless**: every request is exchanged on its own, so the outcome is unaffected by how the feed is split
  * >   across nested feeds or runs, whatever state `middlewares` and the resolved client carry across exchanges.
  *
  * > [!WARNING]
- * > Responses stating an unsuccessful status are skipped, leaving the feed to run to completion; a request stating
- * > a URL that is not absolute or is otherwise malformed brings the feed down instead, unless a middleware screening
- * > it, such as `monitor()` from `@metreeca/http/monitor`, is layered over the client.
+ * > A request stating a URL that is not absolute, or malformed in any other way, is dropped before it is sent, as is
+ * > a response stating an unsuccessful status; both are reported to the log, leaving the feed to run to completion.
  *
  * @param middlewares The middlewares to be layered over the resolved fetch client, in request processing order
  *
- * @returns A task converting a feed of requests into a feed of response byte chunks
+ * @returns A task converting a feed of requests into a feed of responses
  *
  * @throws {Error} While the feed is consumed, if no execution is running, as the fetch client is resolved from the
  *                 enclosing one
@@ -101,13 +112,14 @@ const Accept = "text/html,"
  *
  * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
  */
-export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Uint8Array> {
+export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Response> {
 
 	return requests => items((async function* () {
 
 		const fetch = service(createFetch);
 
 		const send = createFetch(
+			monitor(logger),
 			...middlewares,
 			headers({
 
@@ -122,7 +134,7 @@ export function fetch(...middlewares: readonly Middleware[]): Task<string | URL 
 
 			const response = await send(request);
 
-			yield* response.ok ? response.body ?? [] : []; // a response without a body contributes no chunks
+			yield* response.ok ? [response] : []; // unsuccessful responses are reported by the monitor and skipped
 
 		}
 
