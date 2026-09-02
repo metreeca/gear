@@ -36,7 +36,7 @@ type Outline = {
 /**
  * Creates a feed carrying the given chunks.
  */
-function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
+function chunks(...values: readonly (string | Uint8Array | Response)[]): Feed<string | Uint8Array | Response> {
 	return items((async function* () { yield* values; })());
 }
 
@@ -153,7 +153,7 @@ describe("xml", () => {
 
 	it("recovers from malformed markup rather than skipping the document", async () => {
 
-		// parsing is forgiving: unclosed elements are left open rather than reported
+		// parsing is forgiving: the element is closed at the end of the input rather than reported as an error
 
 		const [ document ] = await chunks(`<item><label>alpha`)(xml())(toArray());
 
@@ -203,6 +203,100 @@ describe("xml", () => {
 		await documents.next();
 
 		expect(state.pulled).toBe(count);
+
+	});
+
+	describe("responses", () => {
+
+		/**
+		 * Creates a response reporting the given retrieval URL.
+		 *
+		 * `Response` computes `url` from the exchange that produced it, so a synthesised one always reports an empty
+		 * string: the own property shadows the prototype getter to stand in for a real exchange.
+		 */
+		function response(body: string, url?: string): Response {
+			return url === undefined ? new Response(body) : Object.defineProperty(new Response(body), "url", {
+				value: url
+			});
+		}
+
+		it("reads the response body as the document", async () => {
+
+			const [ document ] = await chunks(response(`<item><label>alpha</label></item>`))(xml())(toArray());
+
+			expect(text(document)).toBe("alpha");
+
+		});
+
+		it("records the retrieval URL as an xml:base attribute on the root", async () => {
+
+			const [ document ] = await chunks(response(`<item/>`, "https://example.com/a/b"))(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.com/a/b" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("records the retrieval URL on every root element", async () => {
+
+			const [ document ] = await chunks(response(`<a/><b/>`, "https://example.com/a/b"))(xml())(toArray());
+
+			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
+				"https://example.com/a/b",
+				"https://example.com/a/b"
+			]);
+
+		});
+
+		it("resolves a declared xml:base against the retrieval URL", async () => {
+
+			const [ document ] = await chunks(response(`<item xml:base="../c/"/>`, "https://example.com/a/b"))
+			(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.com/c/" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("leaves a declared xml:base untouched without a retrieval URL", async () => {
+
+			const [ document ] = await chunks(`<item xml:base="https://example.net/x"/>`)(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.net/x" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("records nothing for a response reporting no URL", async () => {
+
+			const [ document ] = await chunks(response(`<item/>`))(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: {}, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("records nothing for text or byte chunks", async () => {
+
+			const [ document ] = await chunks(`<item/>`)(xml())(toArray());
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: {}, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("joins a response with surrounding text chunks", async () => {
+
+			const [ document ] = await chunks(`<item>`, response(`alpha`), `</item>`)(xml())(toArray());
+
+			expect(text(document)).toBe("alpha");
+
+		});
 
 	});
 
