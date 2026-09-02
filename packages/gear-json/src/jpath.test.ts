@@ -175,6 +175,15 @@ describe("select", () => {
 
 		});
 
+		it("reads the JSON escapes carried by the property name", async () => {
+
+			const value: Value = { "a\nb": 1, "cAd": 2 };
+
+			expect(select(value, "$['a\\nb']")).toEqual([1]);
+			expect(select(value, "$['c\\u0041d']")).toEqual([2]);
+
+		});
+
 	});
 
 	describe("index steps", () => {

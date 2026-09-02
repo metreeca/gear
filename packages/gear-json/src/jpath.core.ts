@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import type { Value } from "@metreeca/core";
+import { isArray, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
+import { unescape } from "@metreeca/core/strings";
 
 
 const DOT = "(?:^|\\.)(?<dot>\\w+)";
@@ -26,8 +27,6 @@ const WILDCARD = "(?:^|\\.)\\*|\\[\\*]";
 
 const STEP = new RegExp(`(?:^\\$)?(?:(?:${DOT})|(?:${NAME})|(?:${INDEX})|(?:${WILDCARD}))`, "y");
 
-const ESCAPE = /\\(.)/g;
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -37,11 +36,14 @@ const ESCAPE = /\\(.)/g;
  * Supported path syntax:
  *
  * - `.property` / `property` — object property
- * - `['property']` — object property, with backslash escapes
+ * - `['property']` — object property, with JSON string escapes
  * - `[0]` — array element by index
  * - `.*` / `[*]` — every element of an array or every property value of an object
  *
  * A leading `$` denotes the root value and may be omitted.
+ *
+ * A quoted property name carries the escapes a JSON string may carry, read back leniently, so a sequence the syntax
+ * doesn't account for stands for the character it introduces and `\'` names an apostrophe.
  *
  * Every step addresses the value it is applied to: arrays are entered only through an index or a wildcard step, so a
  * path reaching the properties of the objects held by an array must include an explicit `[*]` or `.*` step.
@@ -95,38 +97,23 @@ export function select(value: Value, path: string): readonly Value[] {
 
 	}
 
-}
 
+	function field(value: Value, name: string): readonly Value[] {
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		return isObject(value) && name in value ? [value[name]] : [];
 
-function field(value: Value, name: string): readonly Value[] {
+	}
 
-	return isFields(value) && name in value ? [value[name]] : [];
+	function item(value: Value, index: number): readonly Value[] {
 
-}
+		return isArray<Value>(value) && index < value.length ? [value[index]] : [];
 
-function item(value: Value, index: number): readonly Value[] {
+	}
 
-	return Array.isArray(value) && index < value.length ? [value[index]] : [];
+	function entries(value: Value): readonly Value[] {
 
-}
+		return isArray<Value>(value) || isObject(value) ? Object.values(value) : [];
 
-function entries(value: Value): readonly Value[] {
-
-	return value !== null && typeof value === "object" ? Object.values(value) : [];
-
-}
-
-
-function isFields(value: Value): value is { readonly [name: string]: Value } {
-
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-
-}
-
-function unescape(name: string): string {
-
-	return name.replace(ESCAPE, "$1");
+	}
 
 }
