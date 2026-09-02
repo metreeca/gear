@@ -20,6 +20,8 @@
  * @module
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
+ * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
  */
 
 export * from "./json.js";
+export * from "./jpath.js";
