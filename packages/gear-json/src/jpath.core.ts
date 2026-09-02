@@ -18,14 +18,12 @@ import { isArray, isObject, type Value } from "@metreeca/core"; // aliased, as t
 import { unescape } from "@metreeca/core/strings";
 
 
-const DOT = "(?:^|\\.)(?<dot>\\w+)";
-const NAME = "\\['(?<name>(?:[^']|\\\\.)*)']";
-const INDEX = "\\[(?<index>\\d+)]";
-const WILDCARD = "(?:^|\\.)\\*|\\[\\*]";
+const DotPattern = "(?:^|\\.)(?<dot>\\w+)";
+const NamePattern = "\\['(?<name>(?:[^']|\\\\.)*)']";
+const IndexPattern = "\\[(?<index>\\d+)]";
+const WildcardPattern = "(?:^|\\.)\\*|\\[\\*]";
 
-// sticky, so that each step is matched at the current position, while `^` still anchors at the start of the whole path
-
-const STEP = new RegExp(`(?:^\\$)?(?:(?:${DOT})|(?:${NAME})|(?:${INDEX})|(?:${WILDCARD}))`, "y");
+const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${IndexPattern})|(?:${WildcardPattern}))`;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,61 +57,57 @@ const STEP = new RegExp(`(?:^\\$)?(?:(?:${DOT})|(?:${NAME})|(?:${INDEX})|(?:${WI
  */
 export function select(value: Value, path: string): readonly Value[] {
 
-	if ( !path || path === "$" ) {
-
-		return [value];
-
-	} else {
-
-		return walk([value], 0);
-
-	}
+	return !path || path === "$" ? [value]
+		: parse(path).reduce<readonly Value[]>(step, [value]);
 
 
-	function walk(selection: readonly Value[], from: number): readonly Value[] {
+	function parse(path: string): readonly RegExpExecArray[] {
 
-		STEP.lastIndex = from;
+		// sticky, so that steps match contiguously; global, as required by `matchAll`
 
-		const step = STEP.exec(path);
+		const steps = [...path.matchAll(new RegExp(StepPattern, "gy"))];
 
-		if ( !step ) {
+		// the scan stops at the first unmatched position, leaving the tail of the path uncovered
 
+		const scanned = steps.reduce((length, step) => length + step[0].length, 0);
+
+		if ( scanned !== path.length ) {
 			throw new Error(`malformed path <${path}>`);
-
-		} else {
-
-			const { dot, name, index } = step.groups ?? {};
-
-			const to = STEP.lastIndex;
-
-			const selected = dot !== undefined ? selection.flatMap(v => field(v, unescape(dot)))
-				: name !== undefined ? selection.flatMap(v => field(v, unescape(name)))
-					: index !== undefined ? selection.flatMap(v => item(v, Number(index)))
-						: selection.flatMap(entries);
-
-			return to < path.length ? walk(selected, to) : selected;
-
 		}
 
-	}
-
-
-	function field(value: Value, name: string): readonly Value[] {
-
-		return isObject(value) && name in value ? [value[name]] : [];
+		return steps;
 
 	}
 
-	function item(value: Value, index: number): readonly Value[] {
+	function step(selection: readonly Value[], step: RegExpExecArray): readonly Value[] {
 
-		return isArray<Value>(value) && index < value.length ? [value[index]] : [];
+		const { dot, name, index } = step.groups ?? {};
+
+		const property = dot ?? name;
+
+		return property !== undefined ? fields(selection, unescape(property))
+			: index !== undefined ? items(selection, Number(index))
+				: members(selection);
 
 	}
 
-	function entries(value: Value): readonly Value[] {
+	function fields(selection: readonly Value[], key: string): readonly Value[] {
 
-		return isArray<Value>(value) || isObject(value) ? Object.values(value) : [];
+		return selection.flatMap(value => isObject(value) && key in value ? [value[key]] : []);
 
 	}
+
+	function items(selection: readonly Value[], position: number): readonly Value[] {
+
+		return selection.flatMap(value => isArray<Value>(value) && position < value.length ? [value[position]] : []);
+
+	}
+
+	function members(selection: readonly Value[]): readonly Value[] {
+
+		return selection.flatMap(value => isArray<Value>(value) || isObject(value) ? Object.values(value) : []);
+
+	}
+
 
 }
