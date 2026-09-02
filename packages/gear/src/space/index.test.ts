@@ -15,6 +15,8 @@
  */
 
 import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { bind, executor, service } from "../index.js";
@@ -45,18 +47,41 @@ describe("getPath", () => {
 
 });
 
-
 describe("getPackage", () => {
 
-	it("constructs the closest folder holding a manifest", async () => {
+	it("returns the closest folder holding a manifest", async () => {
 
-		expect(existsSync(join(getPackage(import.meta.dirname), "package.json"))).toBeTruthy();
+		expect(existsSync(join(getPackage(import.meta.dirname), "package.json"))).toBe(true);
 
 	});
 
-	it("constructs a folder enclosing the given path", async () => {
+	it("returns a folder enclosing the given path", async () => {
 
-		expect(import.meta.dirname.startsWith(getPackage(import.meta.dirname))).toBeTruthy();
+		expect(import.meta.dirname.startsWith(getPackage(import.meta.dirname))).toBe(true);
+
+	});
+
+	it("returns the given path when it holds a manifest", async () => {
+
+		const base = getPackage(import.meta.dirname);
+
+		expect(getPackage(base)).toBe(base);
+
+	});
+
+	it("rejects a path with no manifest above it", async () => {
+
+		const orphan = await mkdtemp(join(tmpdir(), "gear-space-"));
+
+		try {
+
+			expect(() => getPackage(orphan)).toThrow();
+
+		} finally {
+
+			await rm(orphan, { recursive: true, force: true });
+
+		}
 
 	});
 
