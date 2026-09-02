@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
 import type { NodeWithChildren } from "domhandler";
 import { hasChildren, isTag, isText } from "domhandler";
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
+import { process } from "./html.core.js";
 import { html } from "./html.js";
 
 
@@ -34,71 +34,47 @@ type Outline = {
 
 
 /**
- * Creates a feed carrying the given documents.
- */
-function documents(...values: readonly (string | Response)[]): Feed<string | Response> {
-	return items((async function* () { yield* values; })());
-}
-
-/**
  * Reduces the element tree rooted at a node to its names and attributes.
  */
-function outline(node: NodeWithChildren): readonly Outline[] {
-	return node.children.filter(isTag).map(element => ({
+function outline(node: undefined | NodeWithChildren): readonly Outline[] {
+	return node?.children.filter(isTag).map(element => ({
 		name: element.name,
 		attributes: element.attribs,
 		children: outline(element)
-	}));
+	})) ?? [];
 }
 
 /**
  * Concatenates the character data of the tree rooted at a node.
  */
-function text(node: NodeWithChildren): string {
-	return node.children
+function text(node: undefined | NodeWithChildren): string {
+	return node?.children
 		.map(child => isText(child) ? child.data : hasChildren(child) ? text(child) : "")
-		.join("");
+		.join("") ?? "";
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-describe("html", () => {
+describe("process", () => {
 
-	it("emits the parsed document as a single value", async () => {
+	it("parses the document as a tree", async () => {
 
-		const [ document, ...others ] = await documents(`<div id="1"><p>alpha</p></div>`)(html())(toArray());
-
-		expect(others).toEqual([]);
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<div id="1"><p>alpha</p></div>`))).toEqual([
 			{ name: "div", attributes: { id: "1" }, children: [{ name: "p", attributes: {}, children: [] }] }
 		] satisfies readonly Outline[]);
 
 	});
 
-	it("emits a document per item", async () => {
+	it("reads the character data of the document", async () => {
 
-		const parsed = await documents(`<div id="1"></div>`, `<div id="2"></div>`)(html())(toArray());
-
-		expect(parsed.map(document => outline(document))).toEqual([
-			[{ name: "div", attributes: { id: "1" }, children: [] }],
-			[{ name: "div", attributes: { id: "2" }, children: [] }]
-		] satisfies readonly (readonly Outline[])[]);
-
-	});
-
-	it("emits the character data of the document", async () => {
-
-		const [ document ] = await documents(`<div><p>alpha</p><p>beta</p></div>`)(html())(toArray());
-
-		expect(text(document)).toBe("alphabeta");
+		expect(text(await process(`<div><p>alpha</p><p>beta</p></div>`))).toBe("alphabeta");
 
 	});
 
 	it("folds element and attribute names to lowercase", async () => {
 
-		const [ document ] = await documents(`<DIV ID="1"></DIV>`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<DIV ID="1"></DIV>`))).toEqual([
 			{ name: "div", attributes: { id: "1" }, children: [] }
 		] satisfies readonly Outline[]);
 
@@ -106,8 +82,7 @@ describe("html", () => {
 
 	it("restores the camelCase names carried by inline SVG", async () => {
 
-		const [ document ] = await documents(`<svg viewBox="0 0 16 16"><clipPath clipPathUnits="userSpaceOnUse"/></svg>`)
-		(html())(toArray());
+		const document = await process(`<svg viewBox="0 0 16 16"><clipPath clipPathUnits="userSpaceOnUse"/></svg>`);
 
 		expect(outline(document)).toEqual([
 			{
@@ -120,9 +95,7 @@ describe("html", () => {
 
 	it("restores the camelCase names carried by inline MathML", async () => {
 
-		const [ document ] = await documents(`<math><mo definitionURL="urn:x"></mo></math>`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<math><mo definitionURL="urn:x"></mo></math>`))).toEqual([
 			{
 				name: "math", attributes: {},
 				children: [{ name: "mo", attributes: { definitionURL: "urn:x" }, children: [] }]
@@ -135,8 +108,7 @@ describe("html", () => {
 
 		// `foreignObject` holds HTML, where names are folded as everywhere else in the document
 
-		const [ document ] = await documents(`<svg><foreignObject><div viewBox="x"></div></foreignObject></svg>`)
-		(html())(toArray());
+		const document = await process(`<svg><foreignObject><div viewBox="x"></div></foreignObject></svg>`);
 
 		expect(outline(document)).toEqual([
 			{
@@ -151,9 +123,7 @@ describe("html", () => {
 
 	it("supplies no root element where the source states none", async () => {
 
-		const [ document ] = await documents(`<p>alpha</p>`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<p>alpha</p>`))).toEqual([
 			{ name: "p", attributes: {}, children: [] }
 		] satisfies readonly Outline[]);
 
@@ -161,9 +131,7 @@ describe("html", () => {
 
 	it("closes elements the source leaves implied", async () => {
 
-		const [ document ] = await documents(`<ul><li>alpha<li>beta</ul>`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<ul><li>alpha<li>beta</ul>`))).toEqual([
 			{
 				name: "ul", attributes: {}, children: [
 					{ name: "li", attributes: {}, children: [] },
@@ -176,48 +144,15 @@ describe("html", () => {
 
 	it("decodes entity references", async () => {
 
-		const [ document ] = await documents(`<p>a&nbsp;&amp;&nbsp;b</p>`)(html())(toArray());
-
-		expect(text(document)).toBe("a & b");
+		expect(text(await process(`<p>a&nbsp;&amp;&nbsp;b</p>`))).toBe("a & b");
 
 	});
 
 	it("strips a byte order mark", async () => {
 
-		const [ document ] = await documents(`﻿<div id="1"></div>`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`﻿<div id="1"></div>`))).toEqual([
 			{ name: "div", attributes: { id: "1" }, children: [] }
 		] satisfies readonly Outline[]);
-
-	});
-
-	it("parses each application as a document of its own", async () => {
-
-		const task = html();
-
-		const [ first ] = await documents(`<div id="1"></div>`)(task)(toArray());
-		const [ second ] = await documents(`<div id="2"></div>`)(task)(toArray());
-
-		expect(outline(first)).toEqual([
-			{ name: "div", attributes: { id: "1" }, children: [] }
-		] satisfies readonly Outline[]);
-
-		expect(outline(second)).toEqual([
-			{ name: "div", attributes: { id: "2" }, children: [] }
-		] satisfies readonly Outline[]);
-
-	});
-
-	it("yields no value if the source produces no documents", async () => {
-
-		expect(await documents()(html())(toArray())).toEqual([]);
-
-	});
-
-	it("yields no value for a document holding only whitespace", async () => {
-
-		expect(await documents(" \n\t ")(html())(toArray())).toEqual([]);
 
 	});
 
@@ -225,51 +160,15 @@ describe("html", () => {
 
 		// parsing is forgiving: the element is closed at the end of the input rather than reported as an error
 
-		const [ document ] = await documents(`<div><p>alpha`)(html())(toArray());
-
-		expect(outline(document)).toEqual([
+		expect(outline(await process(`<div><p>alpha`))).toEqual([
 			{ name: "div", attributes: {}, children: [{ name: "p", attributes: {}, children: [] }] }
 		] satisfies readonly Outline[]);
 
 	});
 
-	it("propagates a source failure", async () => {
+	it("converts a document holding only whitespace to undefined", async () => {
 
-		const failing = items((async function* () {
-
-			yield `<div id="1"></div>`;
-
-			throw new Error("broken source"); // told apart from failures raised by the task by its message
-
-		})());
-
-		await expect(failing(html())(toArray())).rejects.toThrow("broken source");
-
-	});
-
-	it("emits a document as soon as it is drawn", async () => {
-
-		const state = { pulled: 0 }; // records how far the task pulls the source
-
-		async function* source(): AsyncIterable<string> {
-
-			for (const index of Array.from({ length: 10 }, (_, i) => i)) { // generators have no functional equivalent
-
-				state.pulled = index+1;
-
-				yield `<div id="${index}"></div>`;
-
-			}
-
-		}
-
-		const parsed = html()(items(source()))[Symbol.asyncIterator]();
-
-		await parsed.next();
-
-		expect(state.pulled).toBe(1);
-
-		await parsed.return?.();
+		expect(await process(" \n\t ")).toBeUndefined();
 
 	});
 
@@ -298,18 +197,13 @@ describe("html", () => {
 
 		it("reads the response body as the document", async () => {
 
-			const [ document ] = await documents(response(`<div><p>alpha</p></div>`))(html())(toArray());
-
-			expect(text(document)).toBe("alpha");
+			expect(text(await process(response(`<div><p>alpha</p></div>`)))).toBe("alpha");
 
 		});
 
 		it("records the retrieval URL as an xml:base attribute on the root", async () => {
 
-			const [ document ] = await documents(response(`<div></div>`, { url: "https://example.com/a/b" }))
-			(html())(toArray());
-
-			expect(outline(document)).toEqual([
+			expect(outline(await process(response(`<div></div>`, { url: "https://example.com/a/b" })))).toEqual([
 				{ name: "div", attributes: { "xml:base": "https://example.com/a/b" }, children: [] }
 			] satisfies readonly Outline[]);
 
@@ -317,9 +211,9 @@ describe("html", () => {
 
 		it("records the base stated by the document, resolved against the retrieval URL", async () => {
 
-			const [ document ] = await documents(response(`<head><base href="../c/"></head><div></div>`, {
+			const document = await process(response(`<head><base href="../c/"></head><div></div>`, {
 				url: "https://example.com/a/b"
-			}))(html())(toArray());
+			}));
 
 			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
 				"https://example.com/c/",
@@ -330,9 +224,9 @@ describe("html", () => {
 
 		it("records the first base stated by the document", async () => {
 
-			const [ document ] = await documents(response(`<base href="/one/"><base href="/two/"><div></div>`, {
+			const document = await process(response(`<base href="/one/"><base href="/two/"><div></div>`, {
 				url: "https://example.com/a/b"
-			}))(html())(toArray());
+			}));
 
 			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
 				"https://example.com/one/",
@@ -344,7 +238,7 @@ describe("html", () => {
 
 		it("records an absolute base stated by a document given as text", async () => {
 
-			const [ document ] = await documents(`<base href="https://example.net/x/"><div></div>`)(html())(toArray());
+			const document = await process(`<base href="https://example.net/x/"><div></div>`);
 
 			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
 				"https://example.net/x/",
@@ -355,7 +249,7 @@ describe("html", () => {
 
 		it("records nothing for a relative base stated without a retrieval URL", async () => {
 
-			const [ document ] = await documents(`<base href="../c/"><div></div>`)(html())(toArray());
+			const document = await process(`<base href="../c/"><div></div>`);
 
 			expect(outline(document).map(({ attributes }) => attributes["xml:base"])).toEqual([
 				undefined,
@@ -366,9 +260,7 @@ describe("html", () => {
 
 		it("records nothing for a response reporting no URL", async () => {
 
-			const [ document ] = await documents(response(`<div></div>`))(html())(toArray());
-
-			expect(outline(document)).toEqual([
+			expect(outline(await process(response(`<div></div>`)))).toEqual([
 				{ name: "div", attributes: {}, children: [] }
 			] satisfies readonly Outline[]);
 
@@ -378,10 +270,7 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`<p>città</p>`, "latin1");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html; charset=ISO-8859-1" }))
-			(html())(toArray());
-
-			expect(text(document)).toBe("città");
+			expect(text(await process(response(bytes, { type: "text/html; charset=ISO-8859-1" })))).toBe("città");
 
 		});
 
@@ -389,9 +278,7 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`<meta charset="ISO-8859-1"><p>città</p>`, "latin1");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html" }))(html())(toArray());
-
-			expect(text(document)).toBe("città");
+			expect(text(await process(response(bytes, { type: "text/html" })))).toBe("città");
 
 		});
 
@@ -399,10 +286,7 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`<meta charset="ISO-8859-1"><p>città</p>`, "utf8");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html; charset=utf-8" }))
-			(html())(toArray());
-
-			expect(text(document)).toBe("città");
+			expect(text(await process(response(bytes, { type: "text/html; charset=utf-8" })))).toBe("città");
 
 		});
 
@@ -412,9 +296,8 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`${filler}<meta charset="ISO-8859-1"><p>città</p>`, "latin1");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html" }))(html())(toArray());
-
-			expect(text(document)).toContain("citt�"); // read as UTF-8, so the latin1 byte is not decodable
+			expect(text(await process(response(bytes, { type: "text/html" }))))
+				.toContain("citt�"); // read as UTF-8, so the latin1 byte is not decodable
 
 		});
 
@@ -422,9 +305,7 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`<p>città</p>`, "utf8");
 
-			const [ document ] = await documents(response(bytes))(html())(toArray());
-
-			expect(text(document)).toBe("città");
+			expect(text(await process(response(bytes)))).toBe("città");
 
 		});
 
@@ -432,10 +313,7 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`﻿<div id="1"></div>`, "utf8");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html; charset=utf-8" }))
-			(html())(toArray());
-
-			expect(outline(document)).toEqual([
+			expect(outline(await process(response(bytes, { type: "text/html; charset=utf-8" })))).toEqual([
 				{ name: "div", attributes: { id: "1" }, children: [] }
 			] satisfies readonly Outline[]);
 
@@ -445,10 +323,7 @@ describe("html", () => {
 
 			// a mis-declared type is reported to the log and read all the same, as parsing never fails anyway
 
-			const [ document ] = await documents(response(`<div id="1"></div>`, { type: "text/plain" }))
-			(html())(toArray());
-
-			expect(outline(document)).toEqual([
+			expect(outline(await process(response(`<div id="1"></div>`, { type: "text/plain" })))).toEqual([
 				{ name: "div", attributes: { id: "1" }, children: [] }
 			] satisfies readonly Outline[]);
 
@@ -460,18 +335,80 @@ describe("html", () => {
 
 			const bytes = Buffer.from(`<p>città</p>`, "utf8");
 
-			const [ document ] = await documents(response(bytes, { type: "text/html; charset=bogus" }))
-			(html())(toArray());
-
-			expect(text(document)).toBe("città");
+			expect(text(await process(response(bytes, { type: "text/html; charset=bogus" })))).toBe("città");
 
 		});
 
-		it("yields no value for a response without a body", async () => {
+		it("converts a response without a body to undefined", async () => {
 
-			expect(await documents(response(null))(html())(toArray())).toEqual([]);
+			expect(await process(response(null))).toBeUndefined();
 
 		});
+
+	});
+
+});
+
+describe("html", () => {
+
+	it("emits the tree of each document in turn", async () => {
+
+		const documents: readonly string[] = [ `<div id="1"></div>`, `<div id="2"></div>` ];
+
+		expect((await items(documents)(html())(toArray())).map(document => outline(document))).toEqual([
+			[{ name: "div", attributes: { id: "1" }, children: [] }],
+			[{ name: "div", attributes: { id: "2" }, children: [] }]
+		] satisfies readonly (readonly Outline[])[]);
+
+	});
+
+	it("drops documents holding no text", async () => {
+
+		const documents: readonly string[] = [ " \n\t ", `<div id="1"></div>` ];
+
+		expect((await items(documents)(html())(toArray())).map(document => outline(document))).toEqual([
+			[{ name: "div", attributes: { id: "1" }, children: [] }]
+		] satisfies readonly (readonly Outline[])[]);
+
+	});
+
+	it("propagates a source failure", async () => {
+
+		const failing = items((async function* () {
+
+			yield `<div id="1"></div>`;
+
+			throw new Error("broken source"); // told apart from failures raised by the task by its message
+
+		})());
+
+		await expect(failing(html())(toArray())).rejects.toThrow("broken source");
+
+	});
+
+	it("emits a tree as soon as its document is drawn", async () => {
+
+		const state = { pulled: 0 }; // records how far the task pulls the source
+
+		async function* source(): AsyncIterable<string> {
+
+			for (const index of Array.from({ length: 10 }, (_, i) => i)) { // generators have no functional equivalent
+
+				state.pulled = index+1;
+
+				yield `<div id="${index}"></div>`;
+
+			}
+
+		}
+
+		const parsed = html()(items(source()))[Symbol.asyncIterator]();
+
+		await parsed.next();
+
+		expect(state.pulled).toBe(1);
+
+		await parsed.return?.();
 
 	});
 

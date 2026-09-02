@@ -17,32 +17,7 @@
 import type { Object, Value } from "@metreeca/core";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
-import { parseItem } from "@metreeca/http";
-import { log, report } from "@metreeca/tape";
-
-
-/**
- * The media types a JSON document is served under.
- *
- * Matches any type whose subtype is `json` or carries the `+json` structured syntax suffix, so that JSON-based
- * formats, `application/ld+json` and `application/problem+json` among them, are recognised alongside plain
- * `application/json`.
- *
- * @see {@link https://www.rfc-editor.org/rfc/rfc6838#section-4.2.8 RFC 6838 § 4.2.8 - Structured Syntax Suffixes}
- */
-const JSONType = /^[-\w.]+\/(?:[-\w.]+\+)?json$/i;
-
-/**
- * The charsets a JSON document is encoded in.
- *
- * Matches the labels UTF-8 is stated under, the only encoding JSON exchanged between systems is written in.
- *
- * @see {@link https://www.rfc-editor.org/rfc/rfc8259#section-8.1 RFC 8259 § 8.1 - Character Encoding}
- */
-const UTF8Charset = /^utf-?8$/i;
-
-
-const logger = log(import.meta.url);
+import { process } from "./json.core.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,42 +66,16 @@ export function json<V extends Value = Object>(): Task<string | Response, V> {
 
 		for await (const document of documents) {
 
-			const text = (document instanceof Response ? await read(document) : document).trim();
+			const value = await process<V>(document);
 
-			if ( text ) { // a document holding nothing but whitespace contributes no value
+			if ( value !== undefined ) { // a document holding no parsable value contributes no value
 
-				try {
-
-					yield JSON.parse(text);
-
-				} catch ( error ) {
-
-					logger.warn`malformed JSON document (${report(error)})`;
-
-				}
+				yield value;
 
 			}
 
 		}
 
 	})());
-
-
-	async function read(response: Response): Promise<string> {
-
-		const [ type, parameters ] = parseItem(response.headers.get("Content-Type"));
-		const charset = parameters.get("charset") ?? "";
-
-		if ( type && !JSONType.test(type) ) {
-			logger.warn`unexpected <${type}> content type`;
-		}
-
-		if ( charset && !UTF8Charset.test(charset) ) {
-			logger.warn`unsupported <${charset}> charset`;
-		}
-
-		return response.text();
-
-	}
 
 }

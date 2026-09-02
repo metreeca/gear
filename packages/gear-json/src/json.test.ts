@@ -15,11 +15,11 @@
  */
 
 import type { Value } from "@metreeca/core";
-import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
+import { process } from "./json.core.js";
 import { json } from "./json.js";
 
 
@@ -31,85 +31,150 @@ type Item = {
 }
 
 
-/**
- * Creates a feed carrying the given documents.
- */
-function documents(...values: readonly (string | Response)[]): Feed<string | Response> {
-	return items((async function* () { yield* values; })());
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+describe("process", () => {
+
+	it("parses the document as a value", async () => {
+
+		expect(await process<Item>(`{ "id": "1", "label": "alpha" }`))
+			.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+	});
+
+	it("parses documents rooted at values other than objects", async () => {
+
+		expect(await process<Value>(`[1, "alpha", null]`)).toEqual([1, "alpha", null] satisfies Value);
+
+	});
+
+	it("parses documents rooted at scalar values", async () => {
+
+		expect(await process<Value>(`42`)).toBe(42);
+
+	});
+
+	it("converts a document holding only whitespace to undefined", async () => {
+
+		expect(await process(" \n\t ")).toBeUndefined();
+
+	});
+
+	it("converts a document that cannot be parsed to undefined", async () => {
+
+		expect(await process(`{ "id": "1", `)).toBeUndefined();
+
+	});
+
+	describe("responses", () => {
+
+		/**
+		 * Creates a response stating the given content type, none if it is omitted.
+		 *
+		 * The field is stated as empty rather than left out, as the `Response` constructor infers one from the body.
+		 */
+		function response(body: BodyInit | null, type?: string): Response {
+			return new Response(body, { headers: { "Content-Type": type ?? "" } });
+		}
+
+
+		it("reads the response body as the document", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/json")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("decodes the response body as UTF-8", async () => {
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
+
+			expect(await process<Item>(response(bytes, "application/json")))
+				.toEqual({ id: "1", label: "città" } satisfies Item);
+
+		});
+
+		it("reads a response stating the UTF-8 charset under any of its labels", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/json; charset=UTF8")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a charset other than UTF-8 as UTF-8", async () => {
+
+			// JSON exchanged between systems is encoded as UTF-8, as RFC 8259 § 8.1 prescribes: a body stating
+			// another charset is reported to the log and read all the same, its undecodable bytes standing in as
+			// replacement characters
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "latin1");
+
+			expect(await process<Item>(response(bytes, "application/json; charset=ISO-8859-1")))
+				.toEqual({ id: "1", label: "citt�" } satisfies Item);
+
+		});
+
+		it("reads a response stating a JSON-based content type", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/ld+json")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a content type with parameters", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/JSON; charset=utf-8")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating no content type", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`)))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a content type other than JSON", async () => {
+
+			// a mis-declared type is reported to the log and read all the same, as the parser tells JSON apart anyway
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "text/html")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("converts a response without a body to undefined", async () => {
+
+			expect(await process(response(null, "application/json"))).toBeUndefined();
+
+		});
+
+	});
+
+});
 
 describe("json", () => {
 
-	it("emits a value per document", async () => {
+	it("emits the value of each document in turn", async () => {
 
-		const values = await documents(
+		const documents: readonly string[] = [
 			`{ "id": "1", "label": "alpha" }`,
 			`{ "id": "2", "label": "beta" }`
-		)(json<Item>())(toArray());
+		];
 
-		expect(values).toEqual([
+		expect(await items(documents)(json<Item>())(toArray())).toEqual([
 			{ id: "1", label: "alpha" },
 			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
 	});
 
-	it("emits documents rooted at values other than objects", async () => {
+	it("drops documents holding no text or no parsable value", async () => {
 
-		const values = await documents(`[1, "alpha", null]`)(json<Value>())(toArray());
+		const documents: readonly string[] = [ " \n\t ", `{ "id": "1", `, `{ "id": "2", "label": "beta" }` ];
 
-		expect(values).toEqual([
-			[1, "alpha", null]
-		] satisfies readonly Value[]);
-
-	});
-
-	it("emits documents rooted at scalar values", async () => {
-
-		const values = await documents(`42`)(json<Value>())(toArray());
-
-		expect(values).toEqual([
-			42
-		] satisfies readonly Value[]);
-
-	});
-
-	it("parses each application as a document of its own", async () => {
-
-		const task = json<Item>();
-
-		expect(await documents(`{ "id": "1", "label": "alpha" }`)(task)(toArray())).toEqual([
-			{ id: "1", label: "alpha" }
-		] satisfies readonly Item[]);
-
-		expect(await documents(`{ "id": "2", "label": "beta" }`)(task)(toArray())).toEqual([
-			{ id: "2", label: "beta" }
-		] satisfies readonly Item[]);
-
-	});
-
-	it("yields no value if the source produces no documents", async () => {
-
-		expect(await documents()(json())(toArray())).toEqual([]);
-
-	});
-
-	it("yields no value for a document holding only whitespace", async () => {
-
-		expect(await documents(" \n\t ")(json())(toArray())).toEqual([]);
-
-	});
-
-	it("skips documents that cannot be parsed", async () => {
-
-		const values = await documents(
-			`{ "id": "1", `,
-			`{ "id": "2", "label": "beta" }`
-		)(json<Item>())(toArray());
-
-		expect(values).toEqual([
+		expect(await items(documents)(json<Item>())(toArray())).toEqual([
 			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
@@ -151,122 +216,6 @@ describe("json", () => {
 		expect(state.pulled).toBe(1);
 
 		await values.return?.();
-
-	});
-
-	describe("responses", () => {
-
-		/**
-		 * Creates a response stating the given content type, none if it is omitted.
-		 *
-		 * The field is stated as empty rather than left out, as the `Response` constructor infers one from the body.
-		 */
-		function response(body: BodyInit | null, type?: string): Response {
-			return new Response(body, { headers: { "Content-Type": type ?? "" } });
-		}
-
-
-		it("reads the response body as the document", async () => {
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/json"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("decodes the response body as UTF-8", async () => {
-
-			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
-
-			const values = await documents(response(bytes, "application/json"))(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "città" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("reads a response stating the UTF-8 charset under any of its labels", async () => {
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/json; charset=UTF8"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("reads a response stating a charset other than UTF-8 as UTF-8", async () => {
-
-			// JSON exchanged between systems is encoded as UTF-8, as RFC 8259 § 8.1 prescribes: a body stating
-			// another charset is reported to the log and read all the same, its undecodable bytes standing in as
-			// replacement characters
-
-			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "latin1");
-
-			const values = await documents(response(bytes, "application/json; charset=ISO-8859-1"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "citt�" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("yields no value for a response without a body", async () => {
-
-			expect(await documents(response(null, "application/json"))(json())(toArray())).toEqual([]);
-
-		});
-
-		it("reads a response stating a JSON-based content type", async () => {
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/ld+json"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("reads a response stating a content type with parameters", async () => {
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "application/JSON; charset=utf-8"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("reads a response stating no content type", async () => {
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`))(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
-
-		it("reads a response stating a content type other than JSON", async () => {
-
-			// a mis-declared type is reported to the log and read all the same, as the parser tells JSON apart anyway
-
-			const values = await documents(response(`{ "id": "1", "label": "alpha" }`, "text/html"))
-			(json<Item>())(toArray());
-
-			expect(values).toEqual([
-				{ id: "1", label: "alpha" }
-			] satisfies readonly Item[]);
-
-		});
 
 	});
 

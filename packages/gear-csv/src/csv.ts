@@ -16,25 +16,8 @@
 
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
-import { parseItem } from "@metreeca/http";
-import { log } from "@metreeca/tape";
-import { parse } from "csv-parse";
-import { pipeline, Readable } from "node:stream";
+import { process } from "./csv.core.js";
 import type { Record } from "./index.js";
-
-
-/**
- * The media types a CSV document is served under.
- *
- * Matches the registered `text/csv` and the unregistered `application/csv` a good many sources state instead. No
- * structured syntax suffix is registered for CSV, so no `+csv` type is recognised.
- *
- * @see {@link https://www.rfc-editor.org/rfc/rfc4180#section-4.1 RFC 4180 § 4.1 - MIME Type Registration of text/csv}
- */
-const CSVType = /^(?:text|application)\/csv$/i;
-
-
-const logger = log(import.meta.url);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,18 +75,7 @@ const logger = log(import.meta.url);
  * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
  */
-export function csv<R extends Record = Record>({
-
-	header,
-
-	skip,
-	trim,
-	flex,
-
-	quote,
-	delimiter
-
-}: {
+export function csv<R extends Record = Record>(options: {
 
 	readonly header?: boolean
 
@@ -120,93 +92,10 @@ export function csv<R extends Record = Record>({
 
 		for await (const document of documents) {
 
-			const source = document instanceof Response ? read(document) : Readable.from([document]);
-
-			// built per document, so nothing is read until the first record is pulled
-
-			const parser = parse({
-
-				columns: header === true,
-
-				quote: quote || "\"",
-				delimiter: delimiter || ",",
-
-				bom: true,
-
-				skipEmptyLines: skip === true,
-				trim: trim === true,
-				relaxColumnCount: flex === true,
-
-				skipRecordsWithError: true,
-				onSkip: error => void logger.warn`(${error?.lines}) malformed record (${error?.message})`
-
-			});
-
-			// records are parsed as the source is pulled, no document buffered whole, and the chain is torn down
-			// both ways: stopping early releases the source, a source failure surfaces on the parser
-
-			pipeline(source, parser, () => {});
-
-			// delegation keeps the pull chain intact, forwarding a downstream `return()` to the parser
-
-			yield* parser;
+			yield* process<R>(document, options);
 
 		}
 
 	})());
-
-
-	function read(response: Response): Readable {
-
-		const [ type, parameters ] = parseItem(response.headers.get("Content-Type"));
-		const charset = parameters.get("charset") || "UTF-8";
-
-		if ( type && !CSVType.test(type) ) {
-			logger.warn`unexpected <${type}> content type`;
-		}
-
-		const decoder = decode(charset);
-
-		if ( decoder === undefined ) {
-			logger.warn`unknown <${charset}> charset`;
-		}
-
-		if ( response.body === null ) {
-
-			return Readable.from([]);
-
-		} else {
-
-			return Readable.from(text(response.body, decoder ?? new TextDecoder()));
-
-		}
-
-	}
-
-	async function* text(body: ReadableStream<Uint8Array>, decoder: TextDecoder): AsyncIterable<string> {
-
-		for await (const chunk of body) {
-
-			yield decoder.decode(chunk, { stream: true }); // chunk by chunk, so that split multibyte sequences survive
-
-		}
-
-		yield decoder.decode(); // whatever the last chunk left withheld
-
-	}
-
-	function decode(charset: string): undefined | TextDecoder {
-
-		try {
-
-			return new TextDecoder(charset);
-
-		} catch {
-
-			return undefined;
-
-		}
-
-	}
 
 }
