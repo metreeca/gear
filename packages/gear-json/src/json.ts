@@ -18,7 +18,7 @@ import type { Object, Value } from "@metreeca/core";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { log, report } from "@metreeca/tape";
-import { text as decode } from "node:stream/consumers"; // aliased, as `parse()` names its own text
+import { text  } from "node:stream/consumers"; // aliased, as `parse()` names its own text
 
 
 const logger = log(import.meta.url);
@@ -59,7 +59,7 @@ export function json<V extends Value = Object>(): Task<string | Uint8Array, V> {
 
 	return chunks => items((async function* () {
 
-		yield* parse(await decode(chunks));
+		yield* parse(await text(chunks));
 
 	})());
 
