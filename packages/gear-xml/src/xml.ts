@@ -61,7 +61,7 @@ const logger = log(import.meta.url);
  * of their root elements, so relative references resolve against it by the standard rules, without the request being
  * tracked alongside the document. The URL is the one the request landed on, which differs from the one it was issued
  * for if it was redirected; a root that already declares `xml:base` keeps its own value, resolved against it. Nothing
- * is recorded for a document given as text, or for a synthesised response, which reports no URL.
+ * is recorded for a document given as text, or for a synthesised response, which carries no URL.
  *
  * > [!NOTE]
  * >

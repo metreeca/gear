@@ -17,7 +17,8 @@ Parse XML, parse HTML into the **same** node structure, evaluate XPath 1.0 again
 **not** a requirement, and that exclusion is what makes the rest possible.
 
 - `htmlparser2` parses HTML in its default mode and XML under `xmlMode`, and **both modes build the same `domhandler`
-  classes**. Nothing is converted between formats.
+  classes**. Nothing is converted between formats: HTML output is normalised into a plain XML tree, so that a single
+  set of expressions serves both.
 
 - `xpathway` evaluates XPath 1.0 against that structure through an injected adapter, never importing a node type.
 
@@ -31,18 +32,22 @@ produces is the contract, not the one the HTML5 specification prescribes.
 
 # Adapter Conventions
 
-- **The `html` flag drives name matching and attribute lookup together.** With it set, the adapter reports the XHTML
-  namespace for elements and lowercases attribute lookups, which is what makes unprefixed tests match case
-  insensitively. Changing one of the three without the others breaks name tests, and the failure looks like an empty
-  node-set rather than an error.
+- **The adapter is format agnostic.** It carries no notion of the format a tree was parsed from: names are reported as
+  the tree holds them, with no namespace, no case folding and no per-format branch. Reintroducing a mode flag pushes
+  back onto every consumer knowledge the tree doesn't carry.
+
+- **Normalisation belongs to the `html` task, not to the adapter.** HTML trees are handed over already shaped as XML
+  ones: the camelCase SVG and MathML names the HTML5 adjustment tables define are restored, and the base URL a
+  document states is recorded as `xml:base`, as for XML.
 
 - **Attribute handles are cached per element.** `domhandler` keeps attributes as a plain record rather than as nodes.
   Projecting fresh handles on every call breaks node identity, and with it document order and node-set deduplication.
 
 # Constraints
 
-- **XML namespaces are not resolved.** `htmlparser2` keeps the raw qualified name under `xmlMode`, so prefixed name
-  tests do not match. Select with `name()='d:b'` or `local-name()='b'`.
+- **Namespaces are not resolved, in either format.** Names reach the tree as raw qualified strings and are matched as
+  written, so a prefixed element is selected with `name()='d:b'` or `local-name()='b'`, and a default `xmlns` is
+  invisible: `//item` matches elements a namespace-aware processor would require a prefix binding for.
 
 - **`namespace::` and `processing-instruction()` yield empty node-sets.** `domhandler` materialises neither node kind,
   so the syntax evaluates and fails silently.
