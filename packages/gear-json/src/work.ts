@@ -33,7 +33,7 @@ export interface JPath {
 
 	string(): readonly string[];
 
-	iri(): readonly IRI[];
+	iri(base?: IRI): readonly IRI[];
 
 }
 
