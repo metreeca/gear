@@ -21,7 +21,7 @@ import { DomUtils } from "htmlparser2";
 
 
 /**
- * The whitespace runs character data is reported with as a single space.
+ * The whitespace runs collapsed to a single space when character data is rendered.
  *
  * Matches spaces and the control characters markup is laid out with, line feeds and tabs among them, so that the
  * layout of the source doesn't survive into the text.
@@ -69,7 +69,7 @@ type Buffer = {
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
  * - `h1`, `h2`, `h3` — a heading of the matching level, closed by a blank line
- * - `p`, `div`, `section` — the content, closed by a blank line
+ * - `p`, `div`, `section`, `article` — the content, closed by a blank line
  * - `ul`, `ol` — a list set off from the surrounding content by a blank line, ordered lists marked as unordered ones
  * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost
  * - `br` — a line break
@@ -95,7 +95,7 @@ type Buffer = {
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}
  */
-export function markdown(node: AnyNode): Markdown {
+export function process(node: AnyNode): Markdown {
 
 	return format({ text: "", space: false, level: 0 }, node).text.trim();
 
@@ -132,6 +132,7 @@ export function markdown(node: AnyNode): Markdown {
 			case "p":
 			case "div":
 			case "section":
+			case "article":
 
 				return feed(children(buffer, element));
 

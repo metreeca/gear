@@ -26,4 +26,5 @@
 
 export * from "./xml.js";
 export * from "./html.js";
+export * from "./focus.js";
 export * from "./untag.js";

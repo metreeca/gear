@@ -20,7 +20,7 @@ import type { AnyNode, Document } from "domhandler";
 import { isTag } from "domhandler";
 import { parseDocument } from "htmlparser2";
 import { describe, expect, it } from "vitest";
-import { markdown } from "./untag.core.js";
+import { process } from "./untag.core.js";
 import { untag } from "./untag.js";
 
 
@@ -34,34 +34,41 @@ function tree(markup: string): Document {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-describe("markdown", () => {
+describe("process", () => {
 
 	describe("blocks", () => {
 
 		it("renders headings", async () => {
 
-			expect(markdown(tree(`<h1>Alpha</h1><h2>Beta</h2><h3>Gamma</h3>`)))
+			expect(process(tree(`<h1>Alpha</h1><h2>Beta</h2><h3>Gamma</h3>`)))
 				.toBe("# Alpha\n\n## Beta\n\n### Gamma");
 
 		});
 
 		it("separates block containers with a blank line", async () => {
 
-			expect(markdown(tree(`<div>alpha</div><p>beta</p><section>gamma</section>`)))
-				.toBe("alpha\n\nbeta\n\ngamma");
+			expect(process(tree(`<div>alpha</div><p>beta</p><section>gamma</section><article>delta</article>`)))
+				.toBe("alpha\n\nbeta\n\ngamma\n\ndelta");
+
+		});
+
+		it("separates adjacent articles carrying no block content", async () => {
+
+			expect(process(tree(`<article>alpha</article><article>beta</article>`)))
+				.toBe("alpha\n\nbeta");
 
 		});
 
 		it("renders a thematic break", async () => {
 
-			expect(markdown(tree(`<p>alpha</p><hr><p>beta</p>`)))
+			expect(process(tree(`<p>alpha</p><hr><p>beta</p>`)))
 				.toBe("alpha\n\n---\n\nbeta");
 
 		});
 
 		it("renders a line break", async () => {
 
-			expect(markdown(tree(`<p>alpha<br>beta</p>`)))
+			expect(process(tree(`<p>alpha<br>beta</p>`)))
 				.toBe("alpha\nbeta");
 
 		});
@@ -72,28 +79,28 @@ describe("markdown", () => {
 
 		it("marks the items of an unordered list", async () => {
 
-			expect(markdown(tree(`<ul><li>alpha</li><li>beta</li></ul>`)))
+			expect(process(tree(`<ul><li>alpha</li><li>beta</li></ul>`)))
 				.toBe("- alpha\n- beta");
 
 		});
 
 		it("marks the items of an ordered list as unordered ones", async () => {
 
-			expect(markdown(tree(`<ol><li>alpha</li><li>beta</li></ol>`)))
+			expect(process(tree(`<ol><li>alpha</li><li>beta</li></ol>`)))
 				.toBe("- alpha\n- beta");
 
 		});
 
 		it("indents nested lists", async () => {
 
-			expect(markdown(tree(`<ul><li>alpha<ul><li>beta<ul><li>gamma</li></ul></li></ul></li></ul>`)))
+			expect(process(tree(`<ul><li>alpha<ul><li>beta<ul><li>gamma</li></ul></li></ul></li></ul>`)))
 				.toBe("- alpha\n  - beta\n    - gamma");
 
 		});
 
 		it("separates a list from the surrounding content", async () => {
 
-			expect(markdown(tree(`<p>alpha</p><ul><li>beta</li></ul><p>gamma</p>`)))
+			expect(process(tree(`<p>alpha</p><ul><li>beta</li></ul><p>gamma</p>`)))
 				.toBe("alpha\n\n- beta\n\ngamma");
 
 		});
@@ -104,28 +111,28 @@ describe("markdown", () => {
 
 		it("renders links", async () => {
 
-			expect(markdown(tree(`<p>see <a href="https://example.com/">the <b>docs</b></a></p>`)))
+			expect(process(tree(`<p>see <a href="https://example.com/">the <b>docs</b></a></p>`)))
 				.toBe("see [the **docs**](https://example.com/)");
 
 		});
 
 		it("renders images labelled by their alt text", async () => {
 
-			expect(markdown(tree(`<p><img src="cat.png" alt="a cat"></p>`)))
+			expect(process(tree(`<p><img src="cat.png" alt="a cat"></p>`)))
 				.toBe("![a cat](cat.png)");
 
 		});
 
 		it("renders images stating no alt text", async () => {
 
-			expect(markdown(tree(`<p><img src="cat.png"></p>`)))
+			expect(process(tree(`<p><img src="cat.png"></p>`)))
 				.toBe("![](cat.png)");
 
 		});
 
 		it("renders emphasis", async () => {
 
-			expect(markdown(tree(`<p><strong>alpha</strong> <b>beta</b> <em>gamma</em> <i>delta</i></p>`)))
+			expect(process(tree(`<p><strong>alpha</strong> <b>beta</b> <em>gamma</em> <i>delta</i></p>`)))
 				.toBe("**alpha** **beta** *gamma* *delta*");
 
 		});
@@ -136,21 +143,21 @@ describe("markdown", () => {
 
 		it("collapses runs of whitespace", async () => {
 
-			expect(markdown(tree(`<p>alpha   \n\t beta</p>`)))
+			expect(process(tree(`<p>alpha   \n\t beta</p>`)))
 				.toBe("alpha beta");
 
 		});
 
 		it("keeps whitespace bordering text, so that misplaced emphasis doesn't run words together", async () => {
 
-			expect(markdown(tree(`<p>alpha <em>beta</em> gamma</p>`)))
+			expect(process(tree(`<p>alpha <em>beta</em> gamma</p>`)))
 				.toBe("alpha *beta* gamma");
 
 		});
 
 		it("strips leading and trailing whitespace", async () => {
 
-			expect(markdown(tree(`  <p>  alpha  </p>  `)))
+			expect(process(tree(`  <p>  alpha  </p>  `)))
 				.toBe("alpha");
 
 		});
@@ -161,21 +168,21 @@ describe("markdown", () => {
 
 		it("keeps JSON-LD metadata as a fenced block", async () => {
 
-			expect(markdown(tree(`<script type="application/ld+json">{ "a": 1 }</script>`)))
+			expect(process(tree(`<script type="application/ld+json">{ "a": 1 }</script>`)))
 				.toBe("```json\n{ \"a\": 1 }\n```");
 
 		});
 
 		it("drops scripts carrying no JSON-LD metadata", async () => {
 
-			expect(markdown(tree(`<p>alpha</p><script>const x = 1;</script>`)))
+			expect(process(tree(`<p>alpha</p><script>const x = 1;</script>`)))
 				.toBe("alpha");
 
 		});
 
 		it("drops document metadata and styles", async () => {
 
-			expect(markdown(tree(`<head><title>Title</title></head><style>p { color: red }</style><p>alpha</p>`)))
+			expect(process(tree(`<head><title>Title</title></head><style>p { color: red }</style><p>alpha</p>`)))
 				.toBe("alpha");
 
 		});
@@ -186,7 +193,7 @@ describe("markdown", () => {
 
 		it("renders the content of elements carrying no rendering of their own", async () => {
 
-			expect(markdown(tree(`<article><span>alpha</span></article>`)))
+			expect(process(tree(`<figure><span>alpha</span></figure>`)))
 				.toBe("alpha");
 
 		});
@@ -199,20 +206,20 @@ describe("markdown", () => {
 
 			const [ element ] = tree(`<div><p>alpha</p></div><p>beta</p>`).children.filter(isTag);
 
-			expect(markdown(element)).toBe("alpha");
+			expect(process(element)).toBe("alpha");
 
 		});
 
 		it("matches element names case insensitively", async () => {
 
-			expect(markdown(parseDocument(`<UL><LI>alpha</LI><LI>beta</LI></UL>`, { xmlMode: true })))
+			expect(process(parseDocument(`<UL><LI>alpha</LI><LI>beta</LI></UL>`, { xmlMode: true })))
 				.toBe("- alpha\n- beta");
 
 		});
 
 		it("converts a tree holding no content to an empty string", async () => {
 
-			expect(markdown(tree(`   `))).toBe("");
+			expect(process(tree(`   `))).toBe("");
 
 		});
 

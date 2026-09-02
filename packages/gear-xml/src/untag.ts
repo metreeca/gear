@@ -18,7 +18,7 @@ import type { Markdown } from "@metreeca/core/strings";
 import type { Task } from "@metreeca/flow";
 import { map } from "@metreeca/flow/tasks";
 import type { AnyNode } from "domhandler";
-import { markdown } from "./untag.core.js";
+import { process } from "./untag.core.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,9 +26,9 @@ import { markdown } from "./untag.core.js";
 /**
  * Creates a markup converter.
  *
- * The generated task reads a feed of parsed X/HTML trees as a feed of markdown text, converting each tree on its own
- * and emitting the single rendering it yields, so that pages retrieved and parsed upstream are handed to a consumer
- * reading text rather than markup, a language model among them.
+ * The generated task converts a feed of parsed X/HTML trees into a feed of markdown text, one rendering per tree.
+ * Pages retrieved and parsed upstream are handed on as text rather than as markup, ready for a consumer that reads
+ * prose, a language model among them.
  *
  * A tree holding no content is converted to an empty string, so that renderings stay aligned with the trees they were
  * drawn from.
@@ -36,7 +36,7 @@ import { markdown } from "./untag.core.js";
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
  * - `h1`, `h2`, `h3` — a heading of the matching level, closed by a blank line
- * - `p`, `div`, `section` — the content, closed by a blank line
+ * - `p`, `div`, `section`, `article` — the content, closed by a blank line
  * - `ul`, `ol` — a list set off from the surrounding content by a blank line, ordered lists marked as unordered ones
  * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost
  * - `br` — a line break
@@ -72,6 +72,6 @@ import { markdown } from "./untag.core.js";
  */
 export function untag(): Task<AnyNode, Markdown> {
 
-	return map((node: AnyNode) => markdown(node));
+	return map((node: AnyNode) => process(node));
 
 }
