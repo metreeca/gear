@@ -63,18 +63,38 @@ export type JPath = {
 /**
  * Creates a JSON path accessor.
  *
- * The generated task converts a feed of values into a feed of {@link JPath} accessors, one reading the value it was
- * created from.
+ * The generated task converts a feed of values into a feed of {@link JPath} accessors, one accessor per value, so that
+ * a consumer reads what a value holds by path rather than by walking it.
+ *
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: each accessor is emitted as soon as its value is drawn, so the feed produced runs dry as the
+ * >   feed drawn from does and an endless source is read as long as it is consumed.
+ * > - **Streaming**: values are drawn one at a time and none retained, so the length of the feed weighs on memory no
+ * >   more than a single value does; an accessor keeps the value it reads for as long as a consumer holds it.
+ * > - **Stateless**: every value is read on its own, so the outcome is unaffected by how the feed is split across
+ * >   nested feeds or runs.
  *
  * @returns A task converting a feed of values into a feed of path accessors
+ *
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing values
  */
 export function jpath(): Task<Value, JPath>; // without a mapper the accessor is emitted as it is
 
 /**
  * Creates a JSON path projector.
  *
- * The generated task converts a feed of values into a feed of projections, one assembled by `mapper` for each
- * incoming value.
+ * The generated task converts a feed of values into a feed of projections, one projection per value, so that a
+ * consumer works on the shape it is after rather than on the one the source states.
+ *
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: each projection is emitted as soon as its value is drawn, so the feed produced runs dry as the
+ * >   feed drawn from does and an endless source is read as long as it is consumed.
+ * > - **Streaming**: values are drawn one at a time and released as soon as their projection is assembled, so the
+ * >   length of the feed weighs on memory no more than a single value does.
+ * > - **Stateless**: every value is projected on its own, so the outcome is unaffected by how the feed is split across
+ * >   nested feeds or runs.
  *
  * @typeParam V The type of the projection assembled from each incoming value
  *
@@ -82,8 +102,8 @@ export function jpath(): Task<Value, JPath>; // without a mapper the accessor is
  *
  * @returns A task converting a feed of values into a feed of projections
  *
- * @throws {Error} While the feed is consumed, whatever `mapper` reports while assembling a projection, including a
- *                 malformed path error
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing values, or whatever `mapper`
+ *                 reports while assembling a projection, including a malformed path error
  *
  * @example
  *

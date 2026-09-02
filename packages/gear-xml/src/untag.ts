@@ -24,9 +24,8 @@ import { process } from "./untag.core.js";
 /**
  * Creates a markup converter.
  *
- * The generated task converts a feed of parsed X/HTML trees into a feed of markdown text, one rendering per tree.
- * Pages retrieved and parsed upstream are handed on as text rather than as markup, ready for a consumer that reads
- * prose, a language model among them.
+ * The generated task converts a feed of parsed X/HTML trees into a feed of markdown text, one rendering per tree, so
+ * that a consumer reading prose, a language model among them, works on text rather than on markup.
  *
  * A tree holding neither content nor a title is converted to an empty string, so that renderings stay aligned with the
  * trees they were drawn from.

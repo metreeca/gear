@@ -20,7 +20,7 @@ which supplies the shared services they draw on.
 
 ```shell
 npm install @metreeca/gear           # job execution runtime and shared services
-npm install @metreeca/gear-<type>    # task packages, among those listed above
+npm install @metreeca/gear-<type>    # task package, one per input type
 ```
 
 > [!WARNING]
@@ -28,8 +28,8 @@ npm install @metreeca/gear-<type>    # task packages, among those listed above
 > TypeScript consumers must use `"moduleResolution": "nodenext"/"node16"/"bundler"` in `tsconfig.json`.
 > The legacy `"node"` resolver is not supported.
 
-Install the core package, then add a task package for each input type the pipeline handles. These are self-contained
-leaf packages: each pulls in the core package transitively and only the libraries its own input type needs.
+Install the core package, then add a task package for each input type the pipeline handles. Task packages are
+self-contained leaves, each pulling in only the libraries its own input type needs.
 
 | Package               | Description                               |
 |-----------------------|-------------------------------------------|

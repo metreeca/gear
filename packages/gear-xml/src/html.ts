@@ -25,10 +25,11 @@ import { process } from "./html.core.js";
 /**
  * Creates an HTML parser.
  *
- * The generated task reads a feed of HTML documents as a feed of parsed trees, parsing each document on its own and
- * emitting the single tree it holds; a document is given either as text or as a response carrying it as its body.
+ * The generated task converts a feed of HTML documents into a feed of parsed trees, one tree per document, so that a
+ * consumer works on the structure a document states rather than on its text.
  *
- * A document holding no text, or only whitespace, contributes no value, as does a response carrying no body.
+ * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
+ * holding no text, or only whitespace, contributes no tree, as does a response carrying no body.
  *
  * Trees are shaped as the ones produced for XML, so that a single set of path expressions serves both: names are
  * matched as the tree carries them, without namespaces, and no `html`, `head` or `body` element is supplied where the
@@ -62,6 +63,7 @@ import { process } from "./html.core.js";
  * >   across nested feeds or runs.
  *
  * > [!WARNING]
+ * >
  * > Parsing is forgiving and never fails. The emitted tree is always structurally sound, since anything the source
  * > leaves unclosed is closed at the end of the input, but it may misrepresent malformed input rather than reject it,
  * > and it reflects the markup as stated rather than as a browser would repair it: misnested elements are left
@@ -69,6 +71,7 @@ import { process } from "./html.core.js";
  * > against the tree the parser actually produces.
  *
  * > [!NOTE]
+ * >
  * > Names are folded to lowercase, as HTML prescribes, except inside inline SVG and MathML, where the camelCase
  * > element and attribute names the two languages define are restored: `clipPath` and `@viewBox` are selected as
  * > written, while the HTML content hosted by `foreignObject` and the MathML text elements is folded like the rest of

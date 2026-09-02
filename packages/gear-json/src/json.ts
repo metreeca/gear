@@ -25,10 +25,11 @@ import { process } from "./json.core.js";
 /**
  * Creates a JSON parser.
  *
- * The generated task reads a feed of JSON documents as a feed of values, parsing each document on its own and
- * emitting the single value it holds; a document is given either as text or as a response carrying it as its body.
+ * The generated task converts a feed of JSON documents into a feed of values, one value per document, so that a
+ * consumer works on structured data rather than on text.
  *
- * A document holding no text, or only whitespace, contributes no value, as does a response carrying no body.
+ * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
+ * holding no text, or only whitespace, contributes no value, as does a response carrying no body.
  *
  * Response bodies are decoded as UTF-8, the only encoding JSON is exchanged under, and bytes that are not valid UTF-8
  * are read as replacement characters.
@@ -47,6 +48,7 @@ import { process } from "./json.core.js";
  * >   across nested feeds or runs.
  *
  * > [!WARNING]
+ * >
  * > A document that cannot be parsed is skipped and reported to the log, leaving the feed to run to completion.
  *
  * @typeParam V The type of the value produced; the parsed document is emitted as is, without being validated

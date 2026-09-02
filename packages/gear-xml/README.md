@@ -20,6 +20,23 @@ npm install @metreeca/gear-xml  # this package
 > TypeScript consumers must use `"moduleResolution": "nodenext"/"node16"/"bundler"` in `tsconfig.json`.
 > The legacy `"node"` resolver is not supported.
 
+# Usage
+
+| Task               | Description            |
+|--------------------|------------------------|
+| [`xml()`][xml]     | XML parser             |
+| [`html()`][html]   | HTML parser            |
+| [`focus()`][focus] | Main content extractor |
+| [`untag()`][untag] | Markup converter       |
+
+[xml]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.xml.html
+
+[html]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.html.html
+
+[focus]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.focus.html
+
+[untag]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.untag.html
+
 # Support
 
 - open an [issue](https://github.com/metreeca/gear/issues) to report a problem or to suggest a new feature

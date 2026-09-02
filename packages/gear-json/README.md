@@ -20,6 +20,17 @@ npm install @metreeca/gear-json  # this package
 > TypeScript consumers must use `"moduleResolution": "nodenext"/"node16"/"bundler"` in `tsconfig.json`.
 > The legacy `"node"` resolver is not supported.
 
+# Usage
+
+| Task               | Description        |
+|--------------------|--------------------|
+| [`json()`][json]   | JSON parser        |
+| [`jpath()`][jpath] | JSON path accessor |
+
+[json]: https://metreeca.github.io/gear/functions/_metreeca_gear-json.json.html
+
+[jpath]: https://metreeca.github.io/gear/functions/_metreeca_gear-json.jpath.html
+
 # Support
 
 - open an [issue](https://github.com/metreeca/gear/issues) to report a problem or to suggest a new feature

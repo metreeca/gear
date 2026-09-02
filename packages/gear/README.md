@@ -4,13 +4,11 @@
 
 Job execution runtime and shared services for [@metreeca/gear](https://github.com/metreeca/gear).
 
-Provides the runtime for executing data extraction and processing jobs, together with the shared services they rely on.
-
 A consumer sets up an executor, binding the services a job relies on to the implementations chosen for the run. The
 executor runs the job, whose tasks resolve each service through a locator, naming it by its default factory rather than
 importing a concrete implementation.
 
-Binding a different implementation leaves the job unchanged. The same job runs against the live process surroundings,
+Binding a different implementation leaves the job unchanged: the same job runs against the live process surroundings,
 against stubs, or against any custom service honouring the same contracts.
 
 Service instances are constructed on first use, shared across the job, and, where they implement a disposal protocol,

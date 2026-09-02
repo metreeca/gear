@@ -24,7 +24,7 @@
 
 
 /**
- * A CSV record.
+ * CSV record.
  *
  * Maps each field of a data row to its value, keyed either by column label or by positional index.
  */

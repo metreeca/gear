@@ -59,16 +59,17 @@ const logger = log(import.meta.url);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Creates a resource exchange task.
+ * Creates a resource fetcher.
  *
- * The generated task reads a feed of requests as a feed of
- * {@link https://developer.mozilla.org/docs/Web/API/Response Response} objects, each emitted as soon as its head is
- * received, with the body left unread for the consumer to draw or discard; a response carrying no body is emitted all
- * the same.
+ * The generated task converts a feed of requests into a feed of
+ * {@link https://developer.mozilla.org/docs/Web/API/Response Response} objects, so that a consumer draws on remote and
+ * local resources through the client the execution supplies rather than through one of its own.
  *
- * Requests are given as accepted by the standard `fetch()` function, that is as URL strings,
- * {@link https://developer.mozilla.org/docs/Web/API/URL URL} objects or
- * {@link https://developer.mozilla.org/docs/Web/API/Request Request} objects.
+ * A request is given as the standard `fetch()` function accepts it, that is as a URL string, a
+ * {@link https://developer.mozilla.org/docs/Web/API/URL URL} object or a
+ * {@link https://developer.mozilla.org/docs/Web/API/Request Request} object. A response is emitted as soon as its head
+ * is received, with the body left unread for the consumer to draw or discard; a response carrying no body is emitted
+ * all the same.
  *
  * Exchanges are routed through the fetch client resolved from the enclosing
  * {@link @metreeca/gear!index.executor execution}, so that the transport is chosen when the task is run rather than
@@ -88,8 +89,8 @@ const logger = log(import.meta.url);
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: responses are emitted as they are received, so the feed produced runs dry as the feed drawn
- * >   from does.
+ * > - **Incremental**: each response is emitted as soon as its head is received, so the feed produced runs dry as the
+ * >   feed drawn from does and an endless source is read as long as it is consumed.
  * > - **Streaming**: responses are drawn one at a time and handed over with the body unread, none retained, so
  * >   resources of any size are handled without holding them in memory, as long as each body is read or cancelled
  * >   before the next response is drawn.
@@ -97,6 +98,7 @@ const logger = log(import.meta.url);
  * >   across nested feeds or runs, whatever state `middlewares` and the resolved client carry across exchanges.
  *
  * > [!WARNING]
+ * >
  * > A request stating a URL that is not absolute, or malformed in any other way, is dropped before it is sent, as is
  * > a response stating an unsuccessful status; both are reported to the log, leaving the feed to run to completion.
  *
@@ -107,8 +109,8 @@ const logger = log(import.meta.url);
  * @throws {Error} While the feed is consumed, if no execution is running, as the fetch client is resolved from the
  *                 enclosing one
  *
- * @throws {Error} While the feed is consumed, whatever the exchange reports while connecting to a resource or
- *                 receiving its response
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing requests, or whatever the
+ *                 exchange reports while connecting to a resource or receiving its response
  *
  * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
  */

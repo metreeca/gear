@@ -25,10 +25,11 @@ import type { Record } from "./index.js";
 /**
  * Creates a CSV parser.
  *
- * The generated task reads a feed of CSV documents as a feed of records, one {@link Record} per data row; a document
- * is given either as text or as a response carrying it as its body, and is read on its own, header row included.
+ * The generated task converts a feed of CSV documents into a feed of records, one {@link Record} per data row, so that
+ * a consumer works on structured data rather than on text.
  *
- * A response carrying no body contributes no record.
+ * A document is given either as text or as a response carrying it as its body, and is read on its own, header row
+ * included. A response carrying no body contributes no record.
  *
  * Response bodies are decoded as the `charset` parameter of the content type states, and as UTF-8 where it states
  * none, whatever the US-ASCII default carried by the `text` media types, as UTF-8 is what CSV is exchanged under in
@@ -42,8 +43,8 @@ import type { Record } from "./index.js";
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: records are emitted as they are parsed, so the feed produced runs dry as the feed drawn from
- * >   does.
+ * > - **Incremental**: each record is emitted as soon as it is parsed, so the feed produced runs dry as the feed drawn
+ * >   from does and an endless source is read as long as it is consumed.
  * > - **Streaming**: documents are drawn one at a time and a response body is pulled as records are asked for, so
  * >   resources of any size are handled without holding them in memory and a consumer that stops early releases the
  * >   source; a document given as text is nonetheless parsed in one go, and some of a body is read ahead of the
@@ -52,6 +53,7 @@ import type { Record } from "./index.js";
  * >   unaffected by how the feed is split across nested feeds or runs.
  *
  * > [!WARNING]
+ * >
  * > Records that cannot be parsed are skipped and reported to the log, leaving the feed to run to completion.
  *
  * @typeParam R The type of the records produced; field values are emitted as parsed, without being validated

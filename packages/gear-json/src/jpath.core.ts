@@ -38,7 +38,7 @@ const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${Index
  * - `[0]` — array element by index
  * - `.*` / `[*]` — every element of an array or every property value of an object
  *
- * A leading `$` denotes the root value and may be omitted.
+ * A leading `$` denotes the whole value and may be omitted.
  *
  * A quoted property name carries the escapes a JSON string may carry, read back leniently, so a sequence the syntax
  * doesn't account for stands for the character it introduces and `\'` names an apostrophe.

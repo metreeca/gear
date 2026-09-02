@@ -25,10 +25,11 @@ import { process } from "./xml.core.js";
 /**
  * Creates an XML parser.
  *
- * The generated task reads a feed of XML documents as a feed of parsed trees, parsing each document on its own and
- * emitting the single tree it holds; a document is given either as text or as a response carrying it as its body.
+ * The generated task converts a feed of XML documents into a feed of parsed trees, one tree per document, so that a
+ * consumer works on the structure a document states rather than on its text.
  *
- * A document holding no text, or only whitespace, contributes no value, as does a response carrying no body.
+ * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
+ * holding no text, or only whitespace, contributes no tree, as does a response carrying no body.
  *
  * Response bodies are decoded as the `charset` parameter of the content type states, and as UTF-8 where it states
  * none, whatever the US-ASCII default carried by the `text` media types. A byte order mark opening a document is
@@ -55,13 +56,15 @@ import { process } from "./xml.core.js";
  * >   across nested feeds or runs.
  *
  * > [!WARNING]
+ * >
  * > Parsing is forgiving and never fails. The emitted tree is always structurally sound, since anything the source
  * > leaves unclosed is closed at the end of the input, but it may misrepresent malformed input rather than reject it:
  * > an unclosed element absorbs what follows as its descendants, an unterminated attribute value swallows the rest of
- * > the input, and the document may carry any number of element children, none included. Consumers that require
- * > well-formed input must validate the emitted document themselves.
+ * > the input, and the tree may carry any number of element children, none included. Consumers that require
+ * > well-formed input must validate the emitted tree themselves.
  *
  * > [!WARNING]
+ * >
  * > The encoding declared by the XML prolog is ignored: a body is decoded as the content type states, so a document
  * > declaring one encoding and served under another is read under the served one.
  *

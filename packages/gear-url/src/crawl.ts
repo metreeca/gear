@@ -20,7 +20,7 @@ import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 
 /**
- * A possibly asynchronous, possibly absent value.
+ * Possibly asynchronous, possibly absent value.
  *
  * Absence and asynchrony are taken uniformly, so that a provider hands over whatever it already holds, a value, a
  * promise or nothing at all.
@@ -34,18 +34,19 @@ export type Source<T> =
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Creates a task crawling the URLs reachable from the items of a feed.
+ * Creates a URL graph walker.
  *
- * The generated task reads a feed of seed URLs as a feed of the URLs reachable from them, walking each URL reached in
- * turn. URLs are emitted breadth-first in level order, every seed first, then every URL one step away from a seed, and
- * so on, so that the first arrival at a URL is also its shallowest one.
+ * The generated task converts a feed of seed URLs into a feed of the URLs reachable from them, so that a consumer
+ * works on a whole graph of URLs while stating no more than the step from one URL to the next. URLs are emitted
+ * breadth-first in level order, every seed first, then every URL one step away from a seed, and so on, so that the
+ * first arrival at a URL is also its shallowest one.
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
  * stated either as strings or as {@link URL} objects, but reach `walker` and the feed as parsed objects, each one the
  * crawl's own and safe to be altered.
  *
- * > [!WARNING]
+ * > [!NOTE]
  * >
  * > - **Incremental**: seeds are emitted as they are pulled and reachable URLs level by level, so the feed produced
  * >   runs dry as the feed drawn from and `walker` do; no URL reachable from a seed is emitted until the source runs
@@ -64,7 +65,11 @@ export type Source<T> =
  *
  * @param walker The function stating the URLs linked from a URL, none if it is a leaf
  *
- * @returns A task emitting the seeds and every URL reachable from them, each as a parsed object
+ * @returns A task converting a feed of seed URLs into a feed of the seeds and the URLs reachable from them, each as a
+ *          parsed object
+ *
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `walker`
+ *                 reports while stating the URLs linked from a URL
  *
  * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
  *                     reference among them
@@ -86,16 +91,15 @@ export function crawl(
 ): Task<string | URL, URL>;
 
 /**
- * Creates a task crawling the URLs reachable from the items of a feed, emitting results derived from what they stand
- * for.
+ * Creates a URL graph harvester.
  *
- * The generated task reads a feed of seed URLs as a feed of results derived from what the crawled URLs stand for. Each
- * crawled URL is fed once, whatever the number of links converging on it, and both walked and mapped from that single
- * reading, so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the level
- * order the URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed,
- * and so on.
+ * The generated task converts a feed of seed URLs into a feed of results derived from what the crawled URLs stand for,
+ * so that a consumer harvests a whole graph of URLs while stating no more than what a single URL yields. Each crawled
+ * URL is fed once, whatever the number of links converging on it, and both walked and mapped from that single reading,
+ * so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the level order the
+ * URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed, and so on.
  *
- * > [!WARNING]
+ * > [!NOTE]
  * >
  * > - **Incremental**: the results of the seeds are emitted as the seeds are pulled and those of the reachable URLs
  * >   level by level, so the feed produced runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
@@ -119,7 +123,10 @@ export function crawl(
  * @param mapper The function stating the results derived from what a URL stands for, either a single result or a
  *               sequence of them, none if it contributes no result
  *
- * @returns A task emitting the results derived from every crawled URL
+ * @returns A task converting a feed of seed URLs into a feed of the results derived from every crawled URL
+ *
+ * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `feeder`,
+ *                 `walker` and `mapper` report while reading, walking and mapping a URL
  *
  * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
  *                     reference among them
@@ -145,7 +152,7 @@ export function crawl<V, R>(
 ): Task<string | URL, R>;
 
 /**
- * Creates a task crawling URLs, either navigating them alone or harvesting results from what they stand for.
+ * Creates a URL graph walker or harvester.
  */
 export function crawl<V, R>(...steps:
 	| [
