@@ -22,4 +22,4 @@
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  */
 
-export {};
+export * from "./xml.js";
