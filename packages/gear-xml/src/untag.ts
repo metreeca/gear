@@ -21,8 +21,6 @@ import type { AnyNode } from "domhandler";
 import { process } from "./untag.core.js";
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 /**
  * Creates a markup converter.
  *
@@ -30,8 +28,14 @@ import { process } from "./untag.core.js";
  * Pages retrieved and parsed upstream are handed on as text rather than as markup, ready for a consumer that reads
  * prose, a language model among them.
  *
- * A tree holding no content is converted to an empty string, so that renderings stay aligned with the trees they were
- * drawn from.
+ * A tree holding neither content nor a title is converted to an empty string, so that renderings stay aligned with the
+ * trees they were drawn from.
+ *
+ * Where a tree states a title, its rendering opens with a YAML frontmatter block stating it, so that a consumer reads
+ * the page the text belongs to alongside the text itself. The title is the first `title` element the tree states
+ * outside the framing a reader is not after, so that the caption of an embedded object is not mistaken for it, and it
+ * is written as a quoted scalar, so that the punctuation a headline carries doesn't unsettle the block. Where a tree
+ * states no title, or one carrying no text, its rendering opens with the content.
  *
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
@@ -46,13 +50,15 @@ import { process } from "./untag.core.js";
  * - `strong`, `b` — strong emphasis
  * - `em`, `i` — emphasis
  * - `script` — a fenced `json` block, if the type is `application/ld+json`, closed by a blank line; nothing otherwise
- * - `head`, `style` — nothing
+ * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
  *
- * Every other element contributes its content, so that the wrappers a page is built from leave no trace of their own.
+ * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
+ * wrappers a page is built from leave no trace of their own.
  *
- * Character data is rendered with runs of spaces and control characters collapsed to a single space, whatever the
- * markup lays out; a run bordering a text node is kept, so that emphasis misplaced with respect to the surrounding
- * spaces doesn't run words together. Leading and trailing whitespace is stripped from each rendering.
+ * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
+ * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that
+ * emphasis misplaced with respect to the surrounding spaces doesn't run words together. Leading and trailing
+ * whitespace is stripped from each rendering.
  *
  * > [!NOTE]
  * >

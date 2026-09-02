@@ -14,18 +14,10 @@
  * limitations under the License.
  */
 
-import type { AnyNode, Element } from "domhandler";
-import { cloneNode, Document, hasChildren, isTag, isText } from "domhandler";
+import type { AnyNode } from "domhandler";
+import { cloneNode, Document, Element, hasChildren, isTag, isText } from "domhandler";
 import { DomUtils } from "htmlparser2";
-
-
-/**
- * The whitespace runs collapsed to a single space when character data is weighed.
- *
- * Matches spaces and the control characters markup is laid out with, line feeds and tabs among them, so that the
- * layout of the source doesn't weigh on the text.
- */
-const Space = /[ \x00-\x1F\x7F]+/g;
+import { Ignored, name, normalize, titled } from "./index.core.js";
 
 
 /**
@@ -45,23 +37,6 @@ const Textual = new Set([
 	"a", "time", "address", "cite", "q",
 	"code", "kbd", "samp", "var",
 	"small", "sub", "sup", "del", "ins"
-
-]);
-
-/**
- * The elements carrying no text a reader is after.
- *
- * Lists the markup a page is framed by, navigation, headers, footers and sidebars among them, alongside the scripts,
- * styles, controls and embedded objects a reader never reads, so that whatever they hold is left out of the reckoning.
- */
-const Ignored = new Set([
-
-	"style", "script", "noscript",
-	"nav", "header", "footer", "aside",
-	"menu", "menuitem", "toolbar",
-	"iframe", "embed", "object", "applet",
-	"form", "input", "button", "select", "textarea", "label", "fieldset", "legend",
-	"canvas", "svg", "audio", "video", "track", "source"
 
 ]);
 
@@ -132,13 +107,21 @@ type Scan = {
  * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone. Where two
  * elements are equally dense the one stated first wins, which is the outermost of a chain of sole children.
  *
+ * Where the tree is a page, that is where it states an `html` or a `body` element or a title, the regions are handed
+ * over inside the `body` of an `html` element, so that a consumer works on a page as it drew one. The `html` element
+ * states a `head` with a copy of the title where the tree states one, so that a consumer reads the page the content
+ * belongs to alongside the content itself: the title is the first `title` element stated outside the framing a reader
+ * is not after, so that the caption of an embedded object is not mistaken for it. Where the tree is a bare fragment,
+ * the regions are handed over as they stand.
+ *
  * @param node The root of the tree to draw content from; only its descendants are considered, so a tree rooted at the
  *             very element carrying the content is scanned for a region inside it
  *
- * @returns A document rooted at a copy of each region carrying the main content of the tree rooted at `node`, several
- *          roots where the page states several articles; `undefined` if the tree holds no content. Each root records as
- *          `xml:base` the URL relative references in it resolve against, where the tree states one, so that they
- *          resolve as they did however deeply the region sat in the page. The tree drawn from is left untouched
+ * @returns A document holding a copy of each region carrying the main content of the tree rooted at `node`, several
+ *          where the page states several articles, wrapped in a page where the tree is one; `undefined` if the tree
+ *          holds no content. Each region records as `xml:base` the URL relative references in it resolve against,
+ *          where the tree states one, so that they resolve as they did however deeply the region sat in the page. The
+ *          tree drawn from is left untouched
  *
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-main-element WHATWG HTML - The main element}
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article
@@ -150,11 +133,18 @@ export function process(node: AnyNode): undefined | Document {
 	const nodes = hasChildren(node) ? node.children : [];
 	const regions = marked(nodes) ?? articles(nodes) ?? dense(nodes);
 
-	return regions === undefined ? undefined : extract(regions);
+	return regions === undefined ? undefined : extract(regions, framed(nodes), titled(node));
 
 
-	// the region a page marks as its own is taken as stated, however dense the text it holds
-
+	/**
+	 * Draws the region a page marks as its own.
+	 *
+	 * The region is taken as stated, however dense the text it holds.
+	 *
+	 * @param nodes The nodes to search
+	 *
+	 * @returns A singleton holding the region marked by `nodes`; `undefined` if none is marked
+	 */
 	function marked(nodes: readonly AnyNode[]): undefined | readonly Element[] {
 
 		const element = first(element => name(element) === "main")
@@ -170,13 +160,19 @@ export function process(node: AnyNode): undefined | Document {
 	}
 
 
-	// a page states as many articles as it lists, so they are taken together rather than one standing for the rest
-
+	/**
+	 * Draws the regions a page states as articles.
+	 *
+	 * A page states as many articles as it lists, so they are taken together rather than one standing for the rest.
+	 * Articles carrying no text are widgets rather than content, and leave the page to be scored.
+	 *
+	 * @param nodes The nodes to search
+	 *
+	 * @returns The outermost articles stated by `nodes`; `undefined` if none is stated or none carries text
+	 */
 	function articles(nodes: readonly AnyNode[]): undefined | readonly Element[] {
 
 		const stated = outermost(nodes);
-
-		// articles carrying no text are widgets rather than content, and leave the page to be scored
 
 		return stated.length > 0 && scan(stated).density > 0 ? stated : undefined;
 
@@ -200,8 +196,15 @@ export function process(node: AnyNode): undefined | Document {
 	}
 
 
-	// text weighs by the square of its length, so that a long run outweighs the same amount of text scattered around
-
+	/**
+	 * Weighs the text held by a sequence of nodes.
+	 *
+	 * Text weighs by the square of its length, so that a long run outweighs the same amount of text scattered around.
+	 *
+	 * @param nodes The nodes to weigh
+	 *
+	 * @returns The weight of the text held by `nodes`, alongside the densest element among them
+	 */
 	function scan(nodes: readonly AnyNode[]): Scan {
 
 		return nodes.map(weigh).reduce((total, item) => ({
@@ -218,11 +221,20 @@ export function process(node: AnyNode): undefined | Document {
 		function weigh(node: AnyNode): Scan {
 
 			return isTag(node) ? (Ignored.has(name(node)) ? Empty : weighElement(node))
-				: isText(node) ? { ...Empty, xchars: node.data.trim().replace(Space, " ").length**2 }
+				: isText(node) ? { ...Empty, xchars: normalize(node.data.trim()).length**2 }
 					: hasChildren(node) ? scan(node.children)
 						: Empty;
 
 
+			/**
+			 * Weighs the text held by an element.
+			 *
+			 * A leaf carrying text is weighed by the text itself, a container by how much of it is content.
+			 *
+			 * @param element The element to weigh
+			 *
+			 * @returns The weight of the text held by `element`, alongside the densest element it holds
+			 */
 			function weighElement(element: Element): Scan {
 
 				const { xchars, echars, densest, density } = scan(element.children);
@@ -231,8 +243,6 @@ export function process(node: AnyNode): undefined | Document {
 
 				const diluting = children.length;
 				const carrying = children.filter(child => Textual.has(name(child))).length;
-
-				// a leaf carrying text is weighed by the text itself, a container by how much of it is content
 
 				const weight = Textual.has(name(element)) && echars === 0 ? xchars
 					: echars*(carrying+1)/(diluting+1);
@@ -254,20 +264,88 @@ export function process(node: AnyNode): undefined | Document {
 	}
 
 
-	// the regions are handed over rooted in a document of their own, so that expressions apply as to a parsed page
+	/**
+	 * Tests whether a tree states the frame of a page.
+	 *
+	 * @param nodes The nodes to search
+	 *
+	 * @returns true if `nodes` state an `html` or a `body` element; false otherwise
+	 */
+	function framed(nodes: readonly AnyNode[]): boolean {
+		return DomUtils.findOne(element => name(element) === "html" || name(element) === "body",
+			[ ...nodes ], true
+		) !== null;
+	}
 
-	function extract(regions: readonly Element[]): Document {
+
+	/**
+	 * Roots a set of regions in a document of their own.
+	 *
+	 * Regions are copied into a document, so that expressions apply to them as to a parsed page. Where the tree drawn
+	 * from is a page, that is where it is framed or states a title, the copies are held by the `body` of an `html`
+	 * element, stating a `head` with a copy of the title where the tree states one.
+	 *
+	 * @param regions The regions to root
+	 * @param frame Whether the tree drawn from states the frame of a page
+	 * @param title The title the tree drawn from states, if any
+	 *
+	 * @returns A document holding a copy of each region in `regions`
+	 */
+	function extract(regions: readonly Element[], frame: boolean, title: undefined | Element): Document {
 
 		const roots = regions.map(rebased);
-		const document = new Document([ ...roots ]);
+		const children = frame || title !== undefined ? [ paged(title, roots) ] : roots;
+		const document = new Document([ ...children ]);
 
-		roots.forEach(root => { root.parent = document; }); // a document owns the roots it is handed over rooted at
+		children.forEach(root => { root.parent = document; }); // a document owns the roots it is handed over rooted at
 
 		return document;
 
 
-		// the URL a region resolved against in the page travels with the copy, so that its references still resolve
+		/**
+		 * Assembles a page holding a title and a set of regions.
+		 *
+		 * @param title The title the page states, if any
+		 * @param roots The regions the page holds
+		 *
+		 * @returns An `html` element holding `roots` in its `body`, stating a `head` with a copy of `title` where one
+		 *          is stated
+		 */
+		function paged(title: undefined | Element, roots: readonly Element[]): Element {
+			return holding("html", [
+				...(title === undefined ? [] : [ holding("head", [ cloneNode(title, true) ]) ]),
+				holding("body", roots)
+			]);
+		}
 
+		/**
+		 * Assembles an element around a set of children.
+		 *
+		 * @param name The name of the element to assemble
+		 * @param children The nodes the element holds
+		 *
+		 * @returns An element named `name` owning `children`
+		 */
+		function holding(name: string, children: readonly Element[]): Element {
+
+			const element = new Element(name, {}, [ ...children ]);
+
+			children.forEach(child => { child.parent = element; }); // an element owns the nodes it is handed over
+
+			return element;
+
+		}
+
+
+		/**
+		 * Copies a region, recording the URL its references resolve against.
+		 *
+		 * The URL a region resolved against in the page travels with the copy, so that its references still resolve.
+		 *
+		 * @param region The region to copy
+		 *
+		 * @returns A copy of `region` stating as `xml:base` the URL it resolved against, where the page states one
+		 */
 		function rebased(region: Element): Element {
 
 			const clone = cloneNode(region, true);
@@ -311,11 +389,6 @@ export function process(node: AnyNode): undefined | Document {
 
 		}
 
-	}
-
-
-	function name(element: Element): string {
-		return element.name.toLowerCase();
 	}
 
 }

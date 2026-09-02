@@ -41,10 +41,26 @@ function markup(node: undefined | AnyNode): undefined | string {
 }
 
 /**
- * Reports the `xml:base` recorded by the root of a document.
+ * Reports the regions a document holds, whether stated on their own or inside a page.
+ */
+function extracted(document: undefined | Document): readonly Element[] {
+
+	const roots = document?.children.filter(isTag) ?? [];
+	const [ page ] = roots;
+
+	return page?.name === "html"
+		? page.children.filter(isTag).filter(child => child.name === "body").flatMap(body =>
+			body.children.filter(isTag)
+		)
+		: roots;
+
+}
+
+/**
+ * Reports the `xml:base` recorded by the first region a document holds.
  */
 function base(document: undefined | Document): undefined | string {
-	return document?.children.filter(isTag)[0]?.attribs["xml:base"];
+	return extracted(document)[0]?.attribs["xml:base"];
 }
 
 
@@ -187,6 +203,88 @@ describe("process", () => {
 
 	});
 
+	describe("pages", () => {
+
+		it("wraps the content in a page where the tree states an html element", async () => {
+
+			expect(markup(process(tree(`<html><nav>alpha</nav><main><p>beta</p></main></html>`))))
+				.toBe(`<html><body><main><p>beta</p></main></body></html>`);
+
+		});
+
+		it("wraps the content in a page where the tree states a body element", async () => {
+
+			expect(markup(process(tree(`<body><nav>alpha</nav><main><p>beta</p></main></body>`))))
+				.toBe(`<html><body><main><p>beta</p></main></body></html>`);
+
+		});
+
+		it("hands the content over as it stands where the tree states no page", async () => {
+
+			expect(markup(process(tree(`<nav>alpha</nav><main><p>beta</p></main>`))))
+				.toBe(`<main><p>beta</p></main>`);
+
+		});
+
+		it("wraps the content in a page stating the title", async () => {
+
+			expect(markup(process(tree(
+				`<html><head><title>Alpha</title></head>`
+				+`<body><nav>beta</nav><main><p>gamma</p></main></body></html>`
+			))))
+				.toBe(`<html><head><title>Alpha</title></head><body><main><p>gamma</p></main></body></html>`);
+
+		});
+
+		it("holds every region in the body", async () => {
+
+			expect(markup(process(tree(
+				`<html><head><title>Alpha</title></head>`
+				+`<body><article><p>beta</p></article><article><p>gamma</p></article></body></html>`
+			))))
+				.toBe(`<html><head><title>Alpha</title></head>`
+					+`<body><article><p>beta</p></article><article><p>gamma</p></article></body></html>`);
+
+		});
+
+		it("wraps the content in a page where the tree states a title outside an html element", async () => {
+
+			expect(markup(process(tree(`<head><title>Alpha</title></head><main><p>beta</p></main>`))))
+				.toBe(`<html><head><title>Alpha</title></head><body><main><p>beta</p></main></body></html>`);
+
+		});
+
+		it("states no head where the title carries no text", async () => {
+
+			expect(markup(process(tree(
+				`<html><head><title>  </title></head><body><main><p>alpha</p></main></body></html>`
+			))))
+				.toBe(`<html><body><main><p>alpha</p></main></body></html>`);
+
+		});
+
+		it("leaves out a title held by framing", async () => {
+
+			expect(markup(process(tree(`<svg><title>Alpha</title></svg><main><p>beta</p></main>`))))
+				.toBe(`<main><p>beta</p></main>`);
+
+		});
+
+		it("records the base URL on the regions rather than on the page", async () => {
+
+			expect(markup(process(tree(
+				`<html xml:base="https://example.com/docs/index.html">`
+				+`<head><title>Alpha</title></head>`
+				+`<body><main><p>beta</p></main></body>`
+				+`</html>`
+			))))
+				.toBe(`<html><head><title>Alpha</title></head>`
+					+`<body><main xml:base="https://example.com/docs/index.html"><p>beta</p></main></body></html>`);
+
+		});
+
+	});
+
 	describe("documents", () => {
 
 		it("roots the content in a document of its own", async () => {
@@ -246,7 +344,7 @@ describe("process", () => {
 
 		});
 
-		it("records the base URL on every root", async () => {
+		it("records the base URL on every region", async () => {
 
 			const document = process(tree(
 				`<html xml:base="https://example.com/docs/index.html">`
@@ -254,7 +352,7 @@ describe("process", () => {
 				+`</html>`
 			));
 
-			expect(document?.children.filter(isTag).map(root => root.attribs["xml:base"]))
+			expect(extracted(document).map(region => region.attribs["xml:base"]))
 				.toEqual([ "https://example.com/docs/index.html", "https://example.com/docs/index.html" ]);
 
 		});
@@ -381,7 +479,7 @@ describe("process", () => {
 			const source = await page(name);
 			const document = process(source);
 
-			expect(document?.children.filter(isTag).map(label)).toEqual(regions);
+			expect(extracted(document).map(label)).toEqual(regions);
 
 			const content = document === undefined ? "" : reading(document);
 			const whole = reading(source);

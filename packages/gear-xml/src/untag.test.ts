@@ -148,6 +148,13 @@ describe("process", () => {
 
 		});
 
+		it("collapses the no-break spaces and separators a page is laid out with", async () => {
+
+			expect(process(tree(`<p>alpha&nbsp;&nbsp;beta gamma﻿delta</p>`)))
+				.toBe("alpha beta gamma delta");
+
+		});
+
 		it("keeps whitespace bordering text, so that misplaced emphasis doesn't run words together", async () => {
 
 			expect(process(tree(`<p>alpha <em>beta</em> gamma</p>`)))
@@ -182,8 +189,78 @@ describe("process", () => {
 
 		it("drops document metadata and styles", async () => {
 
-			expect(process(tree(`<head><title>Title</title></head><style>p { color: red }</style><p>alpha</p>`)))
+			expect(process(tree(`<head><meta charset="utf-8"></head><style>p { color: red }</style><p>alpha</p>`)))
 				.toBe("alpha");
+
+		});
+
+	});
+
+	describe("frontmatter", () => {
+
+		it("opens the rendering with the title stated by the tree", async () => {
+
+			expect(process(tree(`<html><head><title>Alpha</title></head><body><p>beta</p></body></html>`)))
+				.toBe(`---\ntitle: "Alpha"\n---\n\nbeta`);
+
+		});
+
+		it("renders the content on its own where the tree states no title", async () => {
+
+			expect(process(tree(`<html><body><p>alpha</p></body></html>`)))
+				.toBe("alpha");
+
+		});
+
+		it("renders the content on its own where the title carries no text", async () => {
+
+			expect(process(tree(`<html><head><title>  </title></head><body><p>alpha</p></body></html>`)))
+				.toBe("alpha");
+
+		});
+
+		it("collapses the whitespace a title is laid out with", async () => {
+
+			expect(process(tree(`<head><title>  Alpha \n\t beta  </title></head><p>gamma</p>`)))
+				.toBe(`---\ntitle: "Alpha beta"\n---\n\ngamma`);
+
+		});
+
+		it("escapes the quotes and backslashes a title carries", async () => {
+
+			expect(process(tree(`<head><title>Alpha "beta" \\ gamma</title></head><p>delta</p>`)))
+				.toBe(`---\ntitle: "Alpha \\"beta\\" \\\\ gamma"\n---\n\ndelta`);
+
+		});
+
+		it("leaves out a title held by an embedded object", async () => {
+
+			expect(process(tree(`<svg><title>Alpha</title></svg><p>beta</p>`)))
+				.toBe("beta");
+
+		});
+
+		it("leaves out a title held by framing", async () => {
+
+			expect(process(tree(`<nav><title>Alpha</title></nav><p>beta</p>`)))
+				.toBe("beta");
+
+		});
+
+		it("renders a page wrapping its content in an html body", async () => {
+
+			expect(process(tree(
+				`<html><head><title>Alpha</title></head>`
+				+`<body><article><p>beta</p></article><article><p>gamma</p></article></body></html>`
+			)))
+				.toBe(`---\ntitle: "Alpha"\n---\n\nbeta\n\ngamma`);
+
+		});
+
+		it("renders a tree stating a title but holding no content as the frontmatter alone", async () => {
+
+			expect(process(tree(`<html><head><title>Alpha</title></head><body></body></html>`)))
+				.toBe(`---\ntitle: "Alpha"\n---`);
 
 		});
 

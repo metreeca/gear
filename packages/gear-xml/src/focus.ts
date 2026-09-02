@@ -23,7 +23,7 @@ import { process } from "./focus.core.js";
 /**
  * Creates a main content extractor.
  *
- * The generated task converts a feed of parsed X/HTML trees into a feed of documents rooted at their main content, one
+ * The generated task converts a feed of parsed X/HTML trees into a feed of documents holding their main content, one
  * document per tree. Pages retrieved and parsed upstream are handed on stripped of the navigation, headers, footers,
  * sidebars and controls they are framed by, so that a consumer works on the content it is after rather than on the
  * boilerplate around it.
@@ -47,10 +47,16 @@ import { process } from "./focus.core.js";
  * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone. Where two
  * elements are equally dense the one stated first wins, which is the outermost of a chain of sole children.
  *
- * A document is rooted at one copy per region, so a page listing articles is handed on with several roots. Each root
- * records as `xml:base` the URL relative references in it resolve against, where the tree states one, so that a
- * consumer resolves them by the standard rules however deeply the region sat in the page it was drawn from. The trees
- * drawn from are left untouched.
+ * Where the tree is a page, that is where it states an `html` or a `body` element or a title, the regions are handed
+ * on inside the `body` of an `html` element, so that a consumer works on a page as it drew one. The `html` element
+ * states a `head` with a copy of the title where the tree states one, so that a consumer reads the page the content
+ * belongs to alongside the content itself: the title is the first `title` element stated outside the framing a reader
+ * is not after, so that the caption of an embedded object is not mistaken for it. Where the tree is a bare fragment,
+ * the regions are handed on as they stand, one document root per region.
+ *
+ * Each region records as `xml:base` the URL relative references in it resolve against, where the tree states one, so
+ * that a consumer resolves them by the standard rules however deeply the region sat in the page it was drawn from. The
+ * trees drawn from are left untouched.
  *
  * > [!NOTE]
  * >
@@ -61,7 +67,7 @@ import { process } from "./focus.core.js";
  * > - **Stateless**: every tree is scored on its own, so the outcome is unaffected by how the feed is split across
  * >   nested feeds or runs.
  *
- * @returns A task converting a feed of parsed X/HTML trees into a feed of documents rooted at their main content
+ * @returns A task converting a feed of parsed X/HTML trees into a feed of documents holding their main content
  *
  * @throws {Error} While the feed is consumed, whatever the source reports while producing trees
  *

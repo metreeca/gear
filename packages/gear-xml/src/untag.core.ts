@@ -15,18 +15,12 @@
  */
 
 import type { Markdown } from "@metreeca/core/strings";
+import { escape } from "@metreeca/core/strings";
 import type { AnyNode, Element, NodeWithChildren } from "domhandler";
 import { hasChildren, isTag, isText } from "domhandler";
 import { DomUtils } from "htmlparser2";
+import { normalize, titled } from "./index.core.js";
 
-
-/**
- * The whitespace runs collapsed to a single space when character data is rendered.
- *
- * Matches spaces and the control characters markup is laid out with, line feeds and tabs among them, so that the
- * layout of the source doesn't survive into the text.
- */
-const Space = /[ \x00-\x1F\x7F]+/g;
 
 /**
  * The indentation each enclosing list beyond the outermost adds to an item.
@@ -79,35 +73,43 @@ type Buffer = {
  * - `strong`, `b` — strong emphasis
  * - `em`, `i` — emphasis
  * - `script` — a fenced `json` block, if the type is `application/ld+json`, closed by a blank line; nothing otherwise
- * - `head`, `style` — nothing
+ * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
  *
- * Every other element contributes its content, so that the wrappers a page is built from leave no trace of their own.
+ * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
+ * wrappers a page is built from leave no trace of their own.
  *
- * Character data is rendered with runs of spaces and control characters collapsed to a single space, whatever the
- * markup lays out; a run bordering a text node is kept, so that emphasis misplaced with respect to the surrounding
- * spaces doesn't run words together.
+ * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
+ * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that
+ * emphasis misplaced with respect to the surrounding spaces doesn't run words together.
+ *
+ * Where the tree states a title, the rendering opens with a YAML frontmatter block stating it, so that a consumer
+ * reads the page the text belongs to alongside the text itself. The title is the first `title` element the tree states
+ * outside the framing a reader is not after, so that the caption of an embedded object is not mistaken for it, and it
+ * is written as a quoted scalar, so that the punctuation a headline carries doesn't unsettle the block. Where the tree
+ * states no title, or one carrying no text, the rendering opens with the content.
  *
  * @param node The root of the tree to convert; a document is converted as the sequence of the trees its children root
  *
- * @returns The markdown rendering of the content of the tree rooted at `node`, stripped of leading and trailing
- *          whitespace; empty if the tree holds no content
+ * @returns The markdown rendering of the content of the tree rooted at `node`, opened by a frontmatter block stating
+ *          its title where it states one and stripped of leading and trailing whitespace; empty if the tree holds
+ *          neither content nor a title
  *
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}
  */
 export function process(node: AnyNode): Markdown {
 
-	return format({ text: "", space: false, level: 0 }, node).text.trim();
+	const title = titled(node);
+	const body = format({ text: "", space: false, level: 0 }, node).text.trim();
 
+	return title === undefined ? body : `---\ntitle: "${ escape(plain(title)) }"\n---\n\n${ body }`.trim();
 
-	// character data keeps its bordering whitespace, so that misplaced emphasis doesn't run words together; comments,
-	// doctypes and processing instructions carry no content
 
 	function format(buffer: Buffer, node: AnyNode): Buffer {
 		return isTag(node) ? tag(buffer, node)
-			: isText(node) ? append(buffer, normalize(node.data))
+			: isText(node) ? append(buffer, normalize(node.data)) // bordering whitespace kept, lest words run together
 				: hasChildren(node) ? children(buffer, node)
-					: buffer;
+					: buffer; // comments, doctypes and processing instructions carry no content
 	}
 
 	function children(buffer: Buffer, node: NodeWithChildren): Buffer {
@@ -179,6 +181,7 @@ export function process(node: AnyNode): Markdown {
 
 			case "head":
 			case "style":
+			case "title": // stated by the frontmatter instead
 
 				return buffer;
 
@@ -236,10 +239,6 @@ export function process(node: AnyNode): Markdown {
 
 	function attribute(element: Element, name: string): string {
 		return element.attribs[name] ?? "";
-	}
-
-	function normalize(text: string): string {
-		return text.replace(Space, " ");
 	}
 
 }

@@ -21,7 +21,6 @@
  *
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  * @see {@link https://html.spec.whatwg.org/multipage/ WHATWG HTML Living Standard}
- * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  */
 
 export * from "./xml.js";
