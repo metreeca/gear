@@ -25,7 +25,7 @@ npm install @metreeca/gear-json  # this package
 | Task               | Description        |
 |--------------------|--------------------|
 | [`json()`][json]   | JSON parser        |
-| [`jpath()`][jpath] | JSON path accessor |
+| [`jpath()`][jpath] | JSON path selector |
 
 [json]: https://metreeca.github.io/gear/functions/_metreeca_gear-json.json.html
 

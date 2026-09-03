@@ -26,7 +26,7 @@ describe("jpath", () => {
 
 	describe("without a mapper", () => {
 
-		it("emits an accessor reading each value in turn", async () => {
+		it("emits a selector reading each value in turn", async () => {
 
 			const values: readonly Value[] = [{ id: "1" }, { id: "2" }];
 
@@ -36,25 +36,35 @@ describe("jpath", () => {
 
 		});
 
+		it("selects nothing if the path addresses no value", async () => {
+
+			const values: readonly Value[] = [{ id: "1" }];
+
+			const paths = await items<Value>(values)(jpath())(toArray());
+
+			expect(paths.map(path => path("$.tags"))).toEqual([[]]);
+
+		});
+
 	});
 
 	describe("with a mapper", () => {
 
-		it("emits the projection assembled for each value", async () => {
+		it("emits the result mapped for each value", async () => {
 
 			const values: readonly Value[] = [
 				{ id: "1", tags: ["a", "b"] },
 				{ id: "2", tags: [] }
 			];
 
-			const projections = await items<Value>(values)(jpath(path => ({
+			const results = await items<Value>(values)(jpath(path => ({
 
 				id: path("$.id"),
 				tags: path("$.tags[*]")
 
 			})))(toArray());
 
-			expect(projections).toEqual([
+			expect(results).toEqual([
 				{ id: ["1"], tags: ["a", "b"] },
 				{ id: ["2"], tags: [] }
 			]);
@@ -63,9 +73,32 @@ describe("jpath", () => {
 
 		it("reports a malformed path while the feed is consumed", async () => {
 
-			const projections = items<Value>([{ a: 1 }])(jpath(path => path("a b")))(toArray());
+			const results = items<Value>([{ a: 1 }])(jpath(path => path("a b")))(toArray());
 
-			await expect(projections).rejects.toThrow(Error);
+			await expect(results).rejects.toThrow(SyntaxError);
+
+		});
+
+	});
+
+
+	describe("with values", () => {
+
+		it("reads every given value in turn", () => {
+
+			expect(jpath({ id: "1" }, { id: "2" })("id")).toEqual(["1", "2"]);
+
+		});
+
+		it("selects nothing if the path addresses no value", () => {
+
+			expect(jpath({ id: "1" })("tags")).toEqual([]);
+
+		});
+
+		it("reports a malformed path", () => {
+
+			expect(() => jpath({ id: "1" })("a b")).toThrow(SyntaxError);
 
 		});
 
@@ -278,7 +311,7 @@ describe("select", () => {
 			"$$", "$a", ".", "a..b", "a.[0]", "a b", "[", "[0", "['a", "[*", "[-1]"
 		])("rejects <%s>", async path => {
 
-			expect(() => select({ a: [1] }, path)).toThrow(Error);
+			expect(() => select({ a: [1] }, path)).toThrow(SyntaxError);
 
 		});
 
@@ -286,7 +319,7 @@ describe("select", () => {
 
 			const value: Value = { a: 1 };
 
-			expect(() => select(value, "a b")).toThrow(Error);
+			expect(() => select(value, "a b")).toThrow(SyntaxError);
 			expect(select(value, "$.a")).toEqual([1]);
 
 		});

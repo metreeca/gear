@@ -14,51 +14,24 @@
  * limitations under the License.
  */
 
-
-import { assert } from "@metreeca/core";
-import type { IRI } from "@metreeca/core/resource";
-
-// !!! boolean/number/string/object/array
-// !!! optional/required/multiple
-
-export interface JPath {
-
-	get(path: string): JPath;
-
-	split(): readonly JPath[];
-
-	boolean(): readonly boolean[];
-
-	number(): readonly number[];
-
-	string(): readonly string[];
-
-	iri(base?: IRI): readonly IRI[];
-
-}
+import { assert, isString, type Value } from "@metreeca/core";
+import { optional } from "@metreeca/core/arrays";
+import { type JPath } from "./jpath.js";
 
 
-function required<V>(values: readonly V[]): V {
-	return assert(values, values => values.length === 1, "expected exactly one value")[0];
-}
+function o(json: JPath) {
 
-function optional<V>(values: readonly V[]): undefined | V {
-	return assert(values, values => values.length <= 1, "expected at most one value").at(0);
-}
+	return ({
 
-function multiple<V>(values: readonly V[]): readonly V[] {
-	return values;
+		x: optional(json("path").map(string).map(v => v.toLowerCase()))
+
+	});
+
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const o = (json: JPath) => {
-
-	return ({
-
-		x: optional(json.get("path").string().map(v => v.toLowerCase()))
-
-	});
-
-};
+export function string(value: Value): string {
+	return assert(value, isString);
+}

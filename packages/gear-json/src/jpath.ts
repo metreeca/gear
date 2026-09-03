@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-import { type Value } from "@metreeca/core";
+import { isFunction, type Value } from "@metreeca/core";
 import { Task } from "@metreeca/flow";
 import { map } from "@metreeca/flow/tasks";
 import { select } from "./jpath.core.js";
 
 
 /**
- * Path accessor to a JSON value.
+ * JSONPath-like selector over JSON values.
  *
- * Reads the values held by a JSON value, addressing them with a JSONPath-like syntax.
+ * Reads the values held by a fixed set of target JSON values, addressing them with a JSONPath-like syntax. The target
+ * set is settled when the selector is created and cannot be changed afterwards.
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
  */
@@ -32,26 +33,28 @@ export type JPath = {
 	/**
 	 * Selects values.
 	 *
-	 * Supported path syntax:
+	 * A single selection reaches across the whole target set: the values retrieved from each target are merged into
+	 * one list, sparing the caller a loop of its own.
 	 *
+	 * A path chains steps, each selecting from the values the preceding one selected and written straight after it,
+	 * with no separator beyond the leading `.` some steps carry:
+	 *
+	 * - `$` — the target value itself; allowed only as the leading step, where it may be omitted
 	 * - `.property` / `property` — object property
-	 * - `['property']` — object property, with JSON string escapes
+	 * - `['property']` — object property, with JSON string escapes read leniently: an unaccounted escape stands for
+	 *   the character it introduces, so `\'` names an apostrophe
 	 * - `[0]` — array element by index
 	 * - `.*` / `[*]` — every element of an array or every property value of an object
 	 *
-	 * A leading `$` denotes the whole value and may be omitted.
+	 * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects
+	 * held by an array must include an explicit `[*]` or `.*` step.
 	 *
-	 * A quoted property name carries the escapes a JSON string may carry, read back leniently, so a sequence the syntax
-	 * doesn't account for stands for the character it introduces and `\'` names an apostrophe.
+	 * @param path The selection path; an empty path or `$` selects the target values unchanged
 	 *
-	 * Every step addresses the value it is applied to: arrays are entered only through an index or a wildcard step, so
-	 * a path reaching the properties of the objects held by an array must include an explicit `[*]` or `.*` step.
+	 * @returns An immutable list of the values selected by `path`, ordered by target and, within each target, in
+	 *          document order; empty if `path` selects no value
 	 *
-	 * @param path The selection path; an empty path or `$` selects the whole value
-	 *
-	 * @returns An immutable list of the values addressed by `path`, in document order; empty if no value is addressed
-	 *
-	 * @throws {Error} If `path` is malformed
+	 * @throws {@link !SyntaxError} If `path` is malformed
 	 */
 	(path: string): readonly Value[];
 
@@ -61,57 +64,57 @@ export type JPath = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Creates a JSON path accessor.
+ * Creates a JSON path selector task.
  *
- * The generated task converts a feed of values into a feed of {@link JPath} accessors, one accessor per value, so that
+ * The generated task converts a feed of values into a feed of {@link JPath} selectors, one selector per value, so that
  * a consumer reads what a value holds by path rather than by walking it.
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: each accessor is emitted as soon as its value is drawn, so the feed produced runs dry as the
+ * > - **Incremental**: each selector is emitted as soon as its value is drawn, so the feed produced runs dry as the
  * >   feed drawn from does and an endless source is read as long as it is consumed.
  * > - **Streaming**: values are drawn one at a time and none retained, so the length of the feed weighs on memory no
- * >   more than a single value does; an accessor keeps the value it reads for as long as a consumer holds it.
+ * >   more than a single value does; a selector keeps the value it reads for as long as a consumer holds it.
  * > - **Stateless**: every value is read on its own, so the outcome is unaffected by how the feed is split across
  * >   nested feeds or runs.
  *
- * @returns A task converting a feed of values into a feed of path accessors
+ * @returns A task converting a feed of values into a feed of path selectors
  *
  * @throws {Error} While the feed is consumed, whatever the source reports while producing values
  */
-export function jpath(): Task<Value, JPath>; // without a mapper the accessor is emitted as it is
+export function jpath(): Task<Value, JPath>; // without a mapper the selector is emitted as it is
 
 /**
- * Creates a JSON path projector.
+ * Creates a JSON path mapping task.
  *
- * The generated task converts a feed of values into a feed of projections, one projection per value, so that a
+ * The generated task converts a feed of values into a feed of mapped results, one result per value, so that a
  * consumer works on the shape it is after rather than on the one the source states.
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: each projection is emitted as soon as its value is drawn, so the feed produced runs dry as the
+ * > - **Incremental**: each result is emitted as soon as its value is drawn, so the feed produced runs dry as the
  * >   feed drawn from does and an endless source is read as long as it is consumed.
- * > - **Streaming**: values are drawn one at a time and released as soon as their projection is assembled, so the
+ * > - **Streaming**: values are drawn one at a time and released as soon as their result is assembled, so the
  * >   length of the feed weighs on memory no more than a single value does.
- * > - **Stateless**: every value is projected on its own, so the outcome is unaffected by how the feed is split across
+ * > - **Stateless**: every value is mapped on its own, so the outcome is unaffected by how the feed is split across
  * >   nested feeds or runs.
  *
- * @typeParam V The type of the projection assembled from each incoming value
+ * @typeParam V The type of the result mapped from each incoming value
  *
- * @param mapper The projection assembler, applied to a {@link JPath} accessor reading the value being processed
+ * @param mapper The mapping function, applied to a {@link JPath} selector reading the value being processed
  *
- * @returns A task converting a feed of values into a feed of projections
+ * @returns A task converting a feed of values into a feed of mapped results
  *
  * @throws {Error} While the feed is consumed, whatever the source reports while producing values, or whatever `mapper`
- *                 reports while assembling a projection, including a malformed path error
+ *                 reports while mapping a value, including a {@link !SyntaxError} for a malformed path
  *
  * @example
  *
  * ```typescript
  * const events = jpath(path => ({
  *
- *     id: path("$.id").find(isString),
- *     tags: path("$.tags[*]").filter(isString)
+ *     id: path("$.id"),
+ *     tags: path("$.tags[*]")
  *
  * }));
  * ```
@@ -119,10 +122,38 @@ export function jpath(): Task<Value, JPath>; // without a mapper the accessor is
 export function jpath<V>(mapper: (path: JPath) => V): Task<Value, V>;
 
 /**
- * Creates a JSON path accessor or projector.
+ * Creates a JSON path selector over given values.
+ *
+ * Targets values already at hand, outside a feed, so that a consumer reading a value it holds does so exactly as one
+ * reading a value drawn from a source.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > A call with no value, spreading an empty list included, creates a task over a feed of values rather than a
+ * > selector with an empty target set.
+ *
+ * @param values The target values, in the order they are to be read
+ *
+ * @returns An immutable selector targeting `values`
  */
-export function jpath(mapper: (path: JPath) => unknown = path => path): unknown {
+export function jpath(...values: readonly Value[]): JPath;
 
-	return map((value: Value) => mapper(path => select(value, path)));
+/**
+ * Creates a JSON path selector or a task reading through one.
+ */
+export function jpath(...args: readonly Value[] | readonly [mapper: (path: JPath) => unknown]): unknown {
+
+	return isMapper(args) ? map((value: Value) => args[0](selector([value])))
+		: args.length === 0 ? map((value: Value) => selector([value]))
+			: selector(args);
+
+
+	function isMapper(args: readonly unknown[]): args is readonly [mapper: (path: JPath) => unknown] {
+		return isFunction(args[0]);
+	}
+
+	function selector(values: readonly Value[]): JPath {
+		return Object.freeze((path: string) => values.flatMap(value => select(value, path)));
+	}
 
 }

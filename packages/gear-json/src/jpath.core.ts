@@ -31,27 +31,25 @@ const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${Index
 /**
  * Selects values from a JSON value.
  *
- * Supported path syntax:
+ * A path chains steps, each selecting from the values the preceding one selected and written straight after it, with
+ * no separator beyond the leading `.` some steps carry:
  *
+ * - `$` — `value` itself; allowed only as the leading step, where it may be omitted
  * - `.property` / `property` — object property
- * - `['property']` — object property, with JSON string escapes
+ * - `['property']` — object property, with JSON string escapes read leniently: an unaccounted escape stands for the
+ *   character it introduces, so `\'` names an apostrophe
  * - `[0]` — array element by index
  * - `.*` / `[*]` — every element of an array or every property value of an object
  *
- * A leading `$` denotes the whole value and may be omitted.
- *
- * A quoted property name carries the escapes a JSON string may carry, read back leniently, so a sequence the syntax
- * doesn't account for stands for the character it introduces and `\'` names an apostrophe.
- *
- * Every step addresses the value it is applied to: arrays are entered only through an index or a wildcard step, so a
- * path reaching the properties of the objects held by an array must include an explicit `[*]` or `.*` step.
+ * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects held
+ * by an array must include an explicit `[*]` or `.*` step.
  *
  * @param value The value to select from
  * @param path  The selection path; an empty path or `$` selects `value` itself
  *
- * @returns An immutable list of the values addressed by `path`, in document order; empty if no value is addressed
+ * @returns An immutable list of the values selected by `path`, in document order; empty if `path` selects no value
  *
- * @throws {Error} If `path` is malformed
+ * @throws {@link !SyntaxError} If `path` is malformed
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
  */
@@ -72,7 +70,7 @@ export function select(value: Value, path: string): readonly Value[] {
 		const scanned = steps.reduce((length, step) => length + step[0].length, 0);
 
 		if ( scanned !== path.length ) {
-			throw new Error(`malformed path <${path}>`);
+			throw new SyntaxError(`malformed path <${path}>`);
 		}
 
 		return steps;
