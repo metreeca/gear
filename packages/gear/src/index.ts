@@ -71,12 +71,15 @@ const locators = new AsyncLocalStorage<<T extends Defined>(service: Service<T>) 
  *
  * > [!IMPORTANT]
  * >
- * > Services implementing {@link AsyncDisposable} or {@link Disposable} are disposed in reverse construction order,
- * > whether the job succeeded or failed, the asynchronous protocol taking precedence where both are implemented;
+ * > Services implementing {@link https://tc39.es/proposal-explicit-resource-management/ AsyncDisposable} or
+ * > {@link https://tc39.es/proposal-explicit-resource-management/ Disposable} are disposed in reverse construction
+ * > order, whether the job succeeded or failed, the asynchronous protocol taking precedence where both are implemented;
  * > instances implementing neither are left as they are, which is not an error. Disposal runs outside the execution,
  * > so a disposer resolving a service is rejected rather than constructing an instance nothing would dispose. Every
  * > disposer is run even if an earlier one failed: if the job and a disposal both fail, or several disposals fail, the
- * > errors are collected into an {@link AggregateError}, in the order they were raised.
+ * > errors are collected into an
+ * > {@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AggregateError AggregateError},
+ * > in the order they were raised.
  *
  * @see {@link https://tc39.es/proposal-explicit-resource-management/ ECMAScript Explicit Resource Management}
  */
