@@ -22,15 +22,6 @@
  *
  * @module
  *
- * @groupDescription Narrowings
- *
- * Accessors converting a value obtained from a {@link JPath} selector to the type a consumer expects, failing on a
- * mismatch rather than letting an unexpected shape travel downstream:
- *
- * ```typescript
- * const ids = path("$.items[*].id").map(string);
- * ```
- *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
  */
@@ -50,8 +41,6 @@ export * from "./jpath.js";
  * @returns `value`, unchanged, typed as a boolean
  *
  * @throws {@link !TypeError TypeError} If `value` is not a boolean
- *
- * @group Narrowings
  */
 export function boolean(value: Value): boolean {
 	return assert(value, isBoolean);
@@ -65,8 +54,6 @@ export function boolean(value: Value): boolean {
  * @returns `value`, unchanged, typed as a number
  *
  * @throws {@link !TypeError TypeError} If `value` is not a number
- *
- * @group Narrowings
  */
 export function number(value: Value): number {
 	return assert(value, isNumber);
@@ -80,8 +67,6 @@ export function number(value: Value): number {
  * @returns `value`, unchanged, typed as a string
  *
  * @throws {@link !TypeError TypeError} If `value` is not a string
- *
- * @group Narrowings
  */
 export function string(value: Value): string {
 	return assert(value, isString);
@@ -99,8 +84,6 @@ export function string(value: Value): string {
  * @throws {@link !TypeError TypeError} If `value` is not a string holding an IRI or a relative reference
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc3987 RFC 3987 Internationalized Resource Identifiers}
- *
- * @group Narrowings
  */
 export function iri(value: Value): IRI {
 	return assert(value, isIRI);
