@@ -43,7 +43,7 @@ export type Source<T> =
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
- * stated either as strings or as {@link URL} objects, but reach `walker` and the feed as parsed objects, each one the
+ * stated either as strings or as {@link !URL} objects, but reach `walker` and the feed as parsed objects, each one the
  * crawl's own and safe to be altered.
  *
  * > [!NOTE]
@@ -71,8 +71,8 @@ export type Source<T> =
  * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `walker`
  *                 reports while stating the URLs linked from a URL
  *
- * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *                     reference among them
+ * @throws {@link !TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
+ *                            reference among them
  *
  * @example
  *
@@ -128,8 +128,8 @@ export function crawl(
  * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `feeder`,
  *                 `walker` and `mapper` report while reading, walking and mapping a URL
  *
- * @throws {TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *                     reference among them
+ * @throws {@link !TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
+ *                            reference among them
  *
  * @example
  *

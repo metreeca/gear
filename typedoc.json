@@ -11,6 +11,18 @@
   "favicon": "https://metreeca.com/assets/icon.ico",
   "sourceLinkExternal": true,
   "markdownLinkExternal": true,
+  "externalSymbolLinkMappings": {
+    "global": {
+      "SyntaxError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
+      "TypeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
+      "URL": "https://developer.mozilla.org/en-US/docs/Web/API/URL"
+    },
+    "typescript": {
+      "SyntaxError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
+      "TypeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
+      "URL": "https://developer.mozilla.org/en-US/docs/Web/API/URL"
+    }
+  },
   "navigationLinks": {
     "GitHub": "https://github.com/metreeca/gear"
   },
