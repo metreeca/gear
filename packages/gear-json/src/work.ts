@@ -14,24 +14,17 @@
  * limitations under the License.
  */
 
-import { assert, isString, type Value } from "@metreeca/core";
 import { optional } from "@metreeca/core/arrays";
+import { string } from "./index.js";
 import { type JPath } from "./jpath.js";
 
 
-function o(json: JPath) {
+function o(path: JPath) {
 
 	return ({
 
-		x: optional(json("path").map(string).map(v => v.toLowerCase()))
+		x: optional(path(".x.y").map(string).map(v => v.toLowerCase()))
 
 	});
 
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export function string(value: Value): string {
-	return assert(value, isString);
 }
