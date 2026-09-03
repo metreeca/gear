@@ -76,6 +76,8 @@ import type { Record } from "./index.js";
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ *
+ * @group Factories
  */
 export function csv<R extends Record = Record>(options: {
 

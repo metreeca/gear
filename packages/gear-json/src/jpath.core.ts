@@ -49,7 +49,7 @@ const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${Index
  *
  * @returns An immutable list of the values selected by `path`, in document order; empty if `path` selects no value
  *
- * @throws {@link !SyntaxError} If `path` is malformed
+ * @throws {@link !SyntaxError SyntaxError} If `path` is malformed
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
  */

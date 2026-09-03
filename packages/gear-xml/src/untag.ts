@@ -74,6 +74,8 @@ import { process } from "./untag.core.js";
  *
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}
+ *
+ * @group Factories
  */
 export function untag(): Task<AnyNode, Markdown> {
 

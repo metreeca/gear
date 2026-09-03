@@ -26,7 +26,7 @@ describe("jpath", () => {
 
 	describe("without a mapper", () => {
 
-		it("emits a selector reading each value in turn", async () => {
+		it("emits a selector targeting each value in turn", async () => {
 
 			const values: readonly Value[] = [{ id: "1" }, { id: "2" }];
 
@@ -84,7 +84,7 @@ describe("jpath", () => {
 
 	describe("with values", () => {
 
-		it("reads every given value in turn", () => {
+		it("selects from every given value in turn", () => {
 
 			expect(jpath({ id: "1" }, { id: "2" })("id")).toEqual(["1", "2"]);
 

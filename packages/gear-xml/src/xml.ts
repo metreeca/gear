@@ -75,6 +75,8 @@ import { process } from "./xml.core.js";
  *
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  * @see {@link https://www.rfc-editor.org/rfc/rfc7303 RFC 7303 XML Media Types}
+ *
+ * @group Factories
  */
 export function xml(): Task<string | Response, Document> {
 

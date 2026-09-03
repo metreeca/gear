@@ -84,6 +84,8 @@ import { process } from "./html.core.js";
  *
  * @see {@link https://html.spec.whatwg.org/multipage/ WHATWG HTML Living Standard}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ *
+ * @group Factories
  */
 export function html(): Task<string | Response, Document> {
 

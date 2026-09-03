@@ -74,6 +74,8 @@ import { process } from "./focus.core.js";
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article
  * element}
  * @see {@link https://www.w3.org/TR/wai-aria-1.2/#main WAI-ARIA - main role}
+ *
+ * @group Factories
  */
 export function focus(): Task<AnyNode, Document> {
 

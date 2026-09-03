@@ -43,8 +43,8 @@ export type Source<T> =
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
- * stated either as strings or as {@link !URL} objects, but reach `walker` and the feed as parsed objects, each one the
- * crawl's own and safe to be altered.
+ * stated either as strings or as {@link !URL URL} objects, but reach `walker` and the feed as parsed objects, each
+ * one the crawl's own and safe to be altered.
  *
  * > [!NOTE]
  * >
@@ -71,8 +71,8 @@ export type Source<T> =
  * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `walker`
  *                 reports while stating the URLs linked from a URL
  *
- * @throws {@link !TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *                            reference among them
+ * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
+ *                                      own, a relative reference among them
  *
  * @example
  *
@@ -85,6 +85,8 @@ export type Source<T> =
  *   (toArray())
  * );  // the URLs of /a, /b, /c and /d, in that order
  * ```
+ *
+ * @group Factories
  */
 export function crawl(
 	walker: (url: URL) => Source<Awaitables<string | URL>>
@@ -128,8 +130,8 @@ export function crawl(
  * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `feeder`,
  *                 `walker` and `mapper` report while reading, walking and mapping a URL
  *
- * @throws {@link !TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its own, a relative
- *                            reference among them
+ * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
+ *                                      own, a relative reference among them
  *
  * @example
  *
@@ -144,6 +146,8 @@ export function crawl(
  *   (toArray())
  * );  // the item links of every index page
  * ```
+ *
+ * @group Factories
  */
 export function crawl<V, R>(
 	feeder: (url: URL) => Source<V>,

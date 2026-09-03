@@ -61,6 +61,8 @@ import { process } from "./json.core.js";
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ *
+ * @group Factories
  */
 export function json<V extends Value = Object>(): Task<string | Response, V> {
 

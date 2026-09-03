@@ -113,6 +113,8 @@ const logger = log(import.meta.url);
  *                 exchange reports while connecting to a resource or receiving its response
  *
  * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
+ *
+ * @group Factories
  */
 export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Response> {
 
