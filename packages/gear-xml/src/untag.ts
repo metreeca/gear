@@ -22,7 +22,7 @@ import { process } from "./untag.core.js";
 
 
 /**
- * Creates a markup converter.
+ * Creates a markdown renderer.
  *
  * The generated task converts a feed of parsed X/HTML trees into a feed of markdown text, one rendering per tree, so
  * that a consumer reading prose, a language model among them, works on text rather than on markup.

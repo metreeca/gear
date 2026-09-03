@@ -33,8 +33,9 @@ produces is the contract, not the one the HTML5 specification prescribes.
 # Adapter Conventions
 
 - **The adapter is format agnostic.** It carries no notion of the format a tree was parsed from: names are reported as
-  the tree holds them, with no namespace, no case folding and no per-format branch. Reintroducing a mode flag pushes
-  back onto every consumer knowledge the tree doesn't carry.
+  the tree holds them, with no case folding and no per-format branch, and a namespace is read off the prefix a name
+  carries rather than off a declaration. Reintroducing a mode flag pushes back onto every consumer knowledge the tree
+  doesn't carry.
 
 - **Normalisation belongs to the `html` task, not to the adapter.** HTML trees are handed over already shaped as XML
   ones: the camelCase SVG and MathML names the HTML5 adjustment tables define are restored, and the base URL a
@@ -45,14 +46,24 @@ produces is the contract, not the one the HTML5 specification prescribes.
 
 # Constraints
 
-- **Namespaces are not resolved, in either format.** Names reach the tree as raw qualified strings and are matched as
-  written, so a prefixed element is selected with `name()='d:b'` or `local-name()='b'`, and a default `xmlns` is
-  invisible: `//item` matches elements a namespace-aware processor would require a prefix binding for.
+- **Namespaces are not resolved, in either format.** No `xmlns` declaration is read: a name reaches the tree as a raw
+  qualified string and its **prefix stands in for its namespace**, compared as written. So `//d:b` selects `<d:b>`
+  whatever URI the document binds `d` to, `//b` leaves it out, `name()='d:b'` and `local-name()='b'` both reach it, and
+  a default `xmlns` is invisible: `//item` matches elements a namespace-aware processor would require a prefix binding
+  for. `namespace-uri()` consequently reports a prefix rather than a URI. The `xml` prefix is the one exception, bound
+  to its standard URI by definition rather than by declaration, so `@xml:base` and `lang()` read what they are meant to.
 
-- **`namespace::` and `processing-instruction()` yield empty node-sets.** `domhandler` materialises neither node kind,
-  so the syntax evaluates and fails silently.
+- **`namespace::` and `processing-instruction()` yield empty node-sets.** No namespace node is held, and the adapter
+  leaves `domhandler` directives — the XML declaration, the document type declaration and processing instructions
+  alike — out of the tree, as the XPath data model does for the first two. The syntax evaluates and fails silently.
 
-- **Nothing streams.** XPath needs the finished tree. Tasks here must not advertise streaming semantics.
+- **No document is parsed incrementally.** XPath needs the finished tree, so `xml` and `html` hold each document in
+  memory while parsing it and must document themselves as **materialising**. Do not claim a document is turned into
+  results before it has been read whole.
+
+  This bans a claim, not a word: **streaming** and **materialising** are the memory axis `@metreeca/flow` defines, so a
+  task drawing trees already parsed (`xpath`, `focus`, `untag`) is graded on what it retains across the feed, not on
+  whether XPath needs a whole tree.
 
 # Vendoring the XPath Engine
 

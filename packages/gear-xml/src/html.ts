@@ -32,8 +32,8 @@ import { process } from "./html.core.js";
  * holding no text, or only whitespace, contributes no tree, as does a response carrying no body.
  *
  * Trees are shaped as the ones produced for XML, so that a single set of path expressions serves both: names are
- * matched as the tree carries them, without namespaces, and no `html`, `head` or `body` element is supplied where the
- * source states none.
+ * carried as the source writes them, with no `xmlns` declaration resolved, and no `html`, `head` or `body` element is
+ * supplied where the source states none.
  *
  * Response bodies are decoded as the `charset` parameter of the content type states, as the `meta` charset declared in
  * the opening kilobyte of the document where the content type states none, and as UTF-8 where neither does, whatever

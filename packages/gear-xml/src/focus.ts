@@ -21,7 +21,7 @@ import { process } from "./focus.core.js";
 
 
 /**
- * Creates a main content extractor.
+ * Creates a content extractor.
  *
  * The generated task converts a feed of parsed X/HTML trees into a feed of documents holding their main content, one
  * document per tree, so that a consumer works on the content it is after rather than on the navigation, headers,

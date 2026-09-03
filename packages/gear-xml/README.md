@@ -22,16 +22,19 @@ npm install @metreeca/gear-xml  # this package
 
 # Usage
 
-| Task               | Description            |
-|--------------------|------------------------|
-| [`xml()`][xml]     | XML parser             |
-| [`html()`][html]   | HTML parser            |
-| [`focus()`][focus] | Main content extractor |
-| [`untag()`][untag] | Markup converter       |
+| Task               | Description       |
+|--------------------|-------------------|
+| [`xml()`][xml]     | XML parser        |
+| [`html()`][html]   | HTML parser       |
+| [`xpath()`][xpath] | XPath selector    |
+| [`focus()`][focus] | Content extractor |
+| [`untag()`][untag] | Markdown renderer |
 
 [xml]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.xml.html
 
 [html]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.html.html
+
+[xpath]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.xpath.html
 
 [focus]: https://metreeca.github.io/gear/functions/_metreeca_gear-xml.focus.html
 
