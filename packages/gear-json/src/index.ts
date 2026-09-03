@@ -73,7 +73,7 @@ export function string(value: Value): string {
 }
 
 /**
- * Narrows a JSON value to an IRI.
+ * Narrows a JSON value to a link.
  *
  * Accepts a relative reference as well as an absolute IRI, leaving resolution against a base to the consumer.
  *
@@ -85,6 +85,6 @@ export function string(value: Value): string {
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc3987 RFC 3987 Internationalized Resource Identifiers}
  */
-export function iri(value: Value): IRI {
+export function link(value: Value): IRI {
 	return assert(value, isIRI);
 }
