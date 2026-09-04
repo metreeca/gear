@@ -110,6 +110,24 @@ describe("bind", () => {
 
 	});
 
+	it("hands the implementation a locator resolving services asynchronously", async () => {
+
+		bind(createStore, async service => {
+
+			expectTypeOf(service(createCounter)).toEqualTypeOf<Promise<Counter>>();
+
+			return createMemoryStore();
+
+		});
+
+	});
+
+	it("accepts an implementation ignoring the locator", async () => {
+
+		expectTypeOf(bind(createStore, () => createMemoryStore())).toEqualTypeOf<Binding<Store>>();
+
+	});
+
 });
 
 describe("executor", () => {
