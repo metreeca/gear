@@ -17,7 +17,7 @@
 /**
  * CSV processing tasks.
  *
- * @module
+ * @module index
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
  */

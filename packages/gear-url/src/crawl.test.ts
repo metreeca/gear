@@ -16,9 +16,10 @@
 
 import type { Optional } from "@metreeca/core";
 import type { Awaitables } from "@metreeca/core/async";
+import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
-import { take } from "@metreeca/flow/tasks";
+import { filter, flat, map, peek, take } from "@metreeca/flow/tasks";
 import { describe, expect, it } from "vitest";
 import { crawl, type Source } from "./crawl.js";
 
@@ -321,10 +322,17 @@ describe("crawl", () => {
 
 
 		/**
-		 * States the page a crawled URL stands for, none if the site doesn't include it.
+		 * States the page a crawled URL stands for.
 		 */
-		function feeder(url: URL): Optional<Page> {
-			return site[url.pathname] && { path: url.pathname, title: url.pathname.slice(1).toUpperCase() };
+		function page(url: URL): Page {
+			return { path: url.pathname, title: url.pathname.slice(1).toUpperCase() };
+		}
+
+		/**
+		 * States the pages the crawled URLs of a level stand for, skipping the ones the site doesn't include.
+		 */
+		function feeder(urls: Feed<URL>): Feed<Page> {
+			return urls(filter(url => url.pathname in site))(map(page));
 		}
 
 		/**
@@ -364,16 +372,53 @@ describe("crawl", () => {
 
 			const fed: string[] = [];
 
-			const values = await items([href("/a")])(crawl(url => {
+			// recording a reading has no functional equivalent
 
-				fed.push(url.pathname); // recording a reading has no functional equivalent
-
-				return feeder(url);
-
-			}, links, title))(toArray());
+			const values = await items([href("/a")])(crawl(
+				urls => feeder(urls(peek(url => fed.push(url.pathname)))),
+				links,
+				title
+			))(toArray());
 
 			expect(fed).toEqual(["/a", "/b", "/c", "/d"]); // `/d` converges from `/b` and `/c`, but is fed once
 			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("applies the feeder to one level at a time", async () => {
+
+			const levels: string[][] = [];
+
+			// recording the levels has no functional equivalent
+
+			function recording(urls: Feed<URL>): Feed<Page> {
+
+				const level: string[] = [];
+
+				levels.push(level);
+
+				return feeder(urls(peek(url => level.push(url.pathname))));
+
+			}
+
+			const values = await items([href("/a")])(crawl(recording, links, title))(toArray());
+
+			expect(levels).toEqual([["/a"], ["/b", "/c"], ["/d"]]);
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("walks and maps every value the feeder emits", async () => {
+
+			// a URL read as two pages contributes the results of both, and the links of both are crawled once
+
+			const values = await items([href("/a")])(crawl(
+				urls => urls(map(url => items([page(url), { ...page(url), title: "!" }])))(flat()),
+				links,
+				title
+			))(toArray());
+
+			expect(values).toEqual(["A", "!", "B", "!", "C", "!", "D", "!"]);
 
 		});
 
@@ -386,7 +431,7 @@ describe("crawl", () => {
 
 		});
 
-		it("skips URLs the feeder states nothing for", async () => {
+		it("skips URLs the feeder emits nothing for", async () => {
 
 			const values = await items([href("/a"), href("/missing")])(crawl(feeder, links, title))(toArray());
 
@@ -421,7 +466,7 @@ describe("crawl", () => {
 		it("supports asynchronous steps", async () => {
 
 			const values = await items([href("/a")])(crawl(
-				async url => feeder(url),
+				urls => urls(filter(url => url.pathname in site))(map(async url => page(url))),
 				async page => links(page),
 				async page => title(page)
 			))(toArray());

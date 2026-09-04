@@ -17,7 +17,7 @@
 /**
  * URL processing tasks.
  *
- * @module
+ * @module index
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc3986 RFC 3986 Uniform Resource Identifier (URI): Generic Syntax}
  */

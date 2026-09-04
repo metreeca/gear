@@ -47,8 +47,49 @@ describe("process", () => {
 
 		it("separates block containers with a blank line", async () => {
 
-			expect(process(tree(`<div>alpha</div><p>beta</p><section>gamma</section><article>delta</article>`)))
-				.toBe("alpha\n\nbeta\n\ngamma\n\ndelta");
+			expect(process(tree(`<p>alpha</p><section>beta</section><article>gamma</article>`)))
+				.toBe("alpha\n\nbeta\n\ngamma");
+
+		});
+
+		it("sets off a div stating text of its own, mixed with elements or not", async () => {
+
+			expect(process(tree(`<div>alpha</div><div>beta <a href="/gamma">gamma</a></div>`)))
+				.toBe("alpha\n\nbeta [gamma](/gamma)");
+
+		});
+
+		it("sets off a div wrapping a lone element", async () => {
+
+			expect(process(tree(`<div><span>alpha</span></div><div><span>beta</span></div>`)))
+				.toBe("alpha\n\nbeta");
+
+		});
+
+		it("closes a div laying several elements out with a line break", async () => {
+
+			expect(process(tree(
+				`<div><span>alpha</span> <span>beta</span></div><div><span>gamma</span> <span>delta</span></div>`
+			)))
+				.toBe("alpha beta\ngamma delta");
+
+		});
+
+		it("leaves whitespace out of what tells a wrapper from a paragraph", async () => {
+
+			expect(process(tree(
+				`<div>\n<div> <span>alpha</span> <span>beta</span> </div>\n<div> <span>gamma</span> </div>\n</div>`
+			)))
+				.toBe("alpha beta\n\ngamma");
+
+		});
+
+		it("keeps the content a page lays out in nested wrappers within a single block", async () => {
+
+			expect(process(tree(
+				`<div><div><span>alpha</span><!----><span>a</span></div><!----><div><span>beta</span><!----></div></div>`
+			)))
+				.toBe("alpha a\nbeta");
 
 		});
 
@@ -70,6 +111,34 @@ describe("process", () => {
 
 			expect(process(tree(`<p>alpha<br>beta</p>`)))
 				.toBe("alpha\nbeta");
+
+		});
+
+		it("lays down a blank line for the two line breaks a paragraph is often split with", async () => {
+
+			expect(process(tree(`<p>alpha<br><br>beta</p>`)))
+				.toBe("alpha\n\nbeta");
+
+		});
+
+		it("saturates a run of line breaks at a single blank line", async () => {
+
+			expect(process(tree(`<p>alpha<br><br><br><br>beta</p>`)))
+				.toBe("alpha\n\nbeta");
+
+		});
+
+		it("opens no block with a line break", async () => {
+
+			expect(process(tree(`<p><br><br>alpha</p>`)))
+				.toBe("alpha");
+
+		});
+
+		it("sets a block off from the content preceding it", async () => {
+
+			expect(process(tree(`<div>alpha</div><p>beta</p><div>gamma</div><h1>Delta</h1>`)))
+				.toBe("alpha\n\nbeta\n\ngamma\n\n# Delta");
 
 		});
 
@@ -116,6 +185,13 @@ describe("process", () => {
 
 		});
 
+		it("closes a link with no space, whatever whitespace its content trails", async () => {
+
+			expect(process(tree(`<p><a href="/alpha">beta <!----></a></p>`)))
+				.toBe("[beta](/alpha)");
+
+		});
+
 		it("renders images labelled by their alt text", async () => {
 
 			expect(process(tree(`<p><img src="cat.png" alt="a cat"></p>`)))
@@ -159,6 +235,34 @@ describe("process", () => {
 
 			expect(process(tree(`<p>alpha <em>beta</em> gamma</p>`)))
 				.toBe("alpha *beta* gamma");
+
+		});
+
+		it("keeps a comment as a space, so that framework markers don't run words together", async () => {
+
+			expect(process(tree(`<p><span>alpha</span><!----><span>beta</span></p>`)))
+				.toBe("alpha beta");
+
+		});
+
+		it("opens no line with the space a comment between blocks stands for", async () => {
+
+			expect(process(tree(`<p>alpha</p><!----><p>beta</p>`)))
+				.toBe("alpha\n\nbeta");
+
+		});
+
+		it("opens no line with the whitespace a page lays blocks out with", async () => {
+
+			expect(process(tree(`<p>alpha</p>\n<p>beta</p>`)))
+				.toBe("alpha\n\nbeta");
+
+		});
+
+		it("opens no item with the whitespace a page lays its content out with", async () => {
+
+			expect(process(tree(`<ul><li> alpha</li></ul>`)))
+				.toBe("- alpha");
 
 		});
 

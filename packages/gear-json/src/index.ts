@@ -20,7 +20,7 @@
  * Parses JSON payloads, addresses the values they hold by path, and narrows those values to the types a consumer
  * expects.
  *
- * @module
+ * @module index
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}

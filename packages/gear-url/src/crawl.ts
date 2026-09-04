@@ -96,14 +96,19 @@ export function crawl(
  * Creates a URL graph harvester.
  *
  * The generated task converts a feed of seed URLs into a feed of results derived from what the crawled URLs stand for,
- * so that a consumer harvests a whole graph of URLs while stating no more than what a single URL yields. Each crawled
- * URL is fed once, whatever the number of links converging on it, and both walked and mapped from that single reading,
- * so that the crawl is driven and harvested without reading a URL twice. Results are emitted in the level order the
- * URLs are crawled in, the results of every seed first, then those of every URL one step away from a seed, and so on.
+ * so that a consumer harvests a whole graph of URLs while stating the retrieval of a URL as a pipe of its own. Each
+ * crawled URL is handed over once, whatever the number of links converging on it, and every value it is read as is
+ * both walked and mapped from that single reading, so that the crawl is driven and harvested without reading a URL
+ * twice. Results are emitted in the level order the URLs are crawled in, the results of every seed first, then those
+ * of every URL one step away from a seed, and so on.
+ *
+ * Retrieval is stated as a task over a whole level rather than as a step per URL, so how many URLs are retrieved at a
+ * time is the consumer's to state with the tasks already at hand: a forked `feeder` retrieves several at once, an
+ * unforked one retrieves them in turn. A URL is left out of the harvest by emitting nothing for it.
  *
  * > [!NOTE]
  * >
- * > - **Incremental**: the results of the seeds are emitted as the seeds are pulled and those of the reachable URLs
+ * > - **Incremental**: the results of the seeds are emitted as `feeder` draws them and those of the reachable URLs
  * >   level by level, so the feed produced runs dry as the feed drawn from, `feeder`, `walker` and `mapper` do; no
  * >   URL reachable from a seed is fed until the source runs dry, so the feed never completes on an endless source.
  * > - **Materialising**: every crawled URL is retained for the whole lifetime of the feed, as for the single-step
@@ -116,11 +121,18 @@ export function crawl(
  * > URLs are crawled at most once across the whole feed, whatever seed they are reached from, and matched by canonical
  * > form, as for the single-step form.
  *
+ * > [!IMPORTANT]
+ * >
+ * > `feeder` is applied to one level at a time, so state it initialises on invocation is scoped to that level rather
+ * > than to the crawl, and state spanning the crawl belongs to the enclosing closure. Levels are kept apart whatever
+ * > the task does, while order within a level is the task's own, so a feeder retrieving several URLs at a time
+ * > harvests a level in completion order.
+ *
  * @typeParam V The type of what a crawled URL stands for
  * @typeParam R The type of the results derived from a crawled URL
  *
- * @param feeder The function stating what a URL stands for, none if it is to be crawled no further and to contribute
- *               no result
+ * @param feeder The task stating what the URLs of a level stand for, emitting nothing for a URL to be crawled no
+ *               further and to contribute no result
  * @param walker The function stating the URLs linked from what a URL stands for, none if it is a leaf
  * @param mapper The function stating the results derived from what a URL stands for, either a single result or a
  *               sequence of them, none if it contributes no result
@@ -139,7 +151,7 @@ export function crawl(
  * await pipe(
  *   (items(["https://example.com/products/"]))
  *   (crawl(
- *     url => parse(url), // the page the URL stands for, retrieved once
+ *     fork(4, urls => urls(parse())), // the pages the URLs stand for, four retrievals at a time
  *     page => page.links(".pagination a"), // the index pages it paginates to
  *     page => page.links(".entry a") // the item links it lists
  *   ))
@@ -150,7 +162,7 @@ export function crawl(
  * @group Factories
  */
 export function crawl<V, R>(
-	feeder: (url: URL) => Source<V>,
+	feeder: Task<URL, V>,
 	walker: (data: V) => Source<Awaitables<string | URL>>,
 	mapper: (data: V) => Source<R | Awaitables<R>>
 ): Task<string | URL, R>;
@@ -163,7 +175,7 @@ export function crawl<V, R>(...steps:
 		walker: (url: URL) => Source<Awaitables<string | URL>>
 	]
 	| [
-		feeder: (url: URL) => Source<V>,
+		feeder: Task<URL, V>,
 		walker: (data: V) => Source<Awaitables<string | URL>>,
 		mapper: (data: V) => Source<R | Awaitables<R>>
 	]
@@ -196,13 +208,17 @@ export function crawl<V, R>(...steps:
 			yield* descending(seeds, reach);
 
 
-			async function* reach(url: URL, reached: URL[]): AsyncIterable<URL> {
+			async function* reach(frontier: readonly URL[], reached: URL[]): AsyncIterable<URL> {
 
-				for await (const next of admitted(await walker(url))) {
+				for (const url of frontier) {
 
-					reached.push(next);
+					for await (const next of admitted(await walker(url))) {
 
-					yield next;
+						reached.push(next);
+
+						yield next;
+
+					}
 
 				}
 
@@ -213,7 +229,7 @@ export function crawl<V, R>(...steps:
 	}
 
 	function reap<V, R>(
-		feeder: (url: URL) => Source<V>,
+		feeder: Task<URL, V>,
 		walker: (data: V) => Source<Awaitables<string | URL>>,
 		mapper: (data: V) => Source<R | Awaitables<R>>
 	): Task<string | URL, R> {
@@ -223,23 +239,19 @@ export function crawl<V, R>(...steps:
 			const admitted = admitting();
 
 			// the URLs linked from the seed level, buffered until the source runs dry so that the first arrival at a
-			// URL is its shallowest; seeds are reached as they are pulled, so a slow source doesn't withhold the
+			// URL is its shallowest; seeds are fed as `feeder` draws them, so a slow source doesn't withhold the
 			// ones already in
 
 			const linked: URL[] = [];
 
-			for await (const url of admitted(source)) {
-				yield* reach(url, linked);
-			}
+			yield* reach(admitted(source), linked);
 
 			yield* descending(linked, reach);
 
 
-			async function* reach(url: URL, reached: URL[]): AsyncIterable<R> {
+			async function* reach(frontier: Awaitables<URL>, reached: URL[]): AsyncIterable<R> {
 
-				const data = await feeder(url);
-
-				if ( data !== undefined ) {
+				for await (const data of feeder(items(frontier))) {
 
 					yield* items<R>(await mapper(data) ?? []);
 
@@ -282,7 +294,7 @@ export function crawl<V, R>(...steps:
 
 	async function* descending<R>(
 		seeds: readonly URL[],
-		reach: (url: URL, reached: URL[]) => AsyncIterable<R>
+		reach: (frontier: readonly URL[], reached: URL[]) => AsyncIterable<R>
 	): AsyncIterable<R> {
 
 		let frontier: readonly URL[] = seeds;
@@ -291,9 +303,7 @@ export function crawl<V, R>(...steps:
 
 			const reached: URL[] = [];
 
-			for (const url of frontier) {
-				yield* reach(url, reached);
-			}
+			yield* reach(frontier, reached);
 
 			frontier = reached;
 

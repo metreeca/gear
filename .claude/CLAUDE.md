@@ -62,6 +62,21 @@ vitest transpiles directly from `src/` without requiring a prior build step. The
 specifier to `packages/<package>/src`; the aliases are convention-based and require no manual updates when adding
 packages or subpath exports.
 
+Assertions on a service instance are made **inside** the job, while the execution is still running. An execution
+releases every instance it constructed as it ends, and a Vitest mock is disposable: releasing one restores it, wiping
+the call records and the implementation a later assertion would read. A mock bound with `bind()` and inspected after
+`executor()` settles is silently reported as never called, whatever the pipe did with it.
+
+```typescript
+await executor(bind(createTranslator, () => delegate))(async () => { // ✅
+    expect(await pipe((items("uno"))(translate("en", "it"))(toArray()))).toEqual([ "<uno>" ]);
+    expect(delegate).toHaveBeenCalledWith("uno", "en", "it");
+});
+
+await executor(bind(createTranslator, () => delegate))(async () => { /* … */ });
+expect(delegate).toHaveBeenCalledWith("uno", "en", "it"); // ❌ released with the execution, no calls recorded
+```
+
 # Version Management
 
 All workspace packages share the root `package.json` version. Beyond the `version` fields the release flow already

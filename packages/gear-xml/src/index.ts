@@ -20,7 +20,7 @@
  * Parses XML and HTML payloads, addresses the nodes they hold by XPath expression, and reads the selected values as
  * the types a consumer expects.
  *
- * @module
+ * @module index
  *
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  * @see {@link https://html.spec.whatwg.org/multipage/ WHATWG HTML Living Standard}
@@ -121,14 +121,14 @@ export function link(node: Target): IRI {
 	const reference = string(node);
 	const url = base(node);
 
-	return assert(url === undefined ? reference : resolved(reference, url), isIRI);
+	return assert(url === undefined ? reference : resolved(url), isIRI);
 
 
-	function resolved(reference: string, base: URL): string {
+	function resolved(url: URL): string {
 
 		try {
 
-			return new URL(reference, base).href;
+			return new URL(reference, url).href;
 
 		} catch { // a malformed reference is reported as it stands // !!! review leniency
 

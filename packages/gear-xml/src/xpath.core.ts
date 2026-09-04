@@ -150,48 +150,17 @@ const adapter: Adapter<Node> = {
 const evaluator = createEvaluator(adapter);
 
 
-function stated(node: AnyNode): readonly ChildNode[] {
+function kept<K extends WeakKey, V>(cache: WeakMap<K, V>, key: K, project: (key: K) => V): V {
 
-	if ( isCDATA(node) || !hasChildren(node) ) {
-
-		return []; // a CDATA section stands for the text it wraps, whose nodes the tree doesn't hold
-
-	} else {
-
-		const cached = contents.get(node);
-
-		if ( cached === undefined ) {
-
-			// the XML declaration, the document type declaration and the processing instructions are no nodes
-
-			const children = node.children.filter(child => !isDirective(child));
-
-			contents.set(node, children);
-
-			return children;
-
-		} else {
-
-			return cached;
-
-		}
-
-	}
-
-}
-
-function projected(element: Element): readonly Attribute[] {
-
-	const cached = handles.get(element);
+	const cached = cache.get(key);
 
 	if ( cached === undefined ) {
 
-		const attributes = Object.entries(element.attribs)
-			.map(([ name, value ]) => Object.freeze({ name, value, parent: element }));
+		const value = project(key);
 
-		handles.set(element, attributes);
+		cache.set(key, value);
 
-		return attributes;
+		return value;
 
 	} else {
 
@@ -199,6 +168,22 @@ function projected(element: Element): readonly Attribute[] {
 
 	}
 
+}
+
+function stated(node: AnyNode): readonly ChildNode[] {
+
+	// a CDATA section stands for the text it wraps, whose nodes the tree doesn't hold; the XML declaration, the
+	// document type declaration and the processing instructions are no nodes
+
+	return isCDATA(node) || !hasChildren(node) ? []
+		: kept(contents, node, parent => parent.children.filter(child => !isDirective(child)));
+
+}
+
+function projected(element: Element): readonly Attribute[] {
+	return kept(handles, element, stating => Object.entries(stating.attribs)
+		.map(([ name, value ]) => Object.freeze({ name, value, parent: stating }))
+	);
 }
 
 function following(node: AnyNode): null | ChildNode {

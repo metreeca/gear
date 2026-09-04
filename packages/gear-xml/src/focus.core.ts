@@ -355,33 +355,34 @@ export function process(node: AnyNode): undefined | Document {
 
 			return clone;
 
-		}
 
-		function base(element: Element): undefined | string {
+			function base(element: Element): undefined | string {
 
-			return bases(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
+				return scoped(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
 
 
-			function bases(element: Element): readonly string[] {
+				function scoped(element: Element): readonly string[] {
 
-				const parent = element.parent;
-				const inherited = parent !== null && isTag(parent) ? bases(parent) : [];
+					const parent = element.parent;
+					const inherited = parent !== null && isTag(parent) ? scoped(parent) : [];
 
-				const href = element.attribs["xml:base"];
+					const href = element.attribs["xml:base"];
 
-				return href === undefined ? inherited : [ ...inherited, href ];
+					return href === undefined ? inherited : [ ...inherited, href ];
 
-			}
+				}
 
-			function absolute(href: string, base: undefined | string): undefined | string {
+				function absolute(href: string, base: undefined | string): undefined | string {
 
-				try {
+					try {
 
-					return new URL(href, base).href;
+						return new URL(href, base).href;
 
-				} catch { // a malformed or unresolvable reference leaves the base as it stands
+					} catch { // a malformed or unresolvable reference leaves the base as it stands
 
-					return undefined;
+						return undefined;
+
+					}
 
 				}
 

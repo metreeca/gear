@@ -7,6 +7,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/commits/main)
 
+### Changed
+
+- `crawl` takes its feeder as a task over the URLs of a level rather than as a function over a single URL, leaving how
+  many URLs are retrieved at a time to the tasks already at hand: a forked feeder retrieves several at once, an unforked
+  one retrieves them in turn
+- `untag` tells a paragraph `div` from the wrappers a page is laid out with, keeps a comment as a word boundary, and
+  renders a run of `br` as the blank line a paragraph is often split with, so that the markdown a page renders to reads
+  as its text does
+
 ## [0.1.1](https://github.com/metreeca/gear/compare/v0.1.0...v0.1.1) - 2026-08-28
 
 ### Fixed
