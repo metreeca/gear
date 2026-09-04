@@ -11,8 +11,9 @@ importing a concrete implementation.
 Binding a different implementation leaves the job unchanged: the same job runs against the live process surroundings,
 against stubs, or against any custom service honouring the same contracts.
 
-Service instances are constructed on first use, shared across the job, and, where they implement a disposal protocol,
-disposed as it ends, so concurrent or repeated runs share nothing.
+Bound implementations are constructed as the execution opens, unbound defaults on first use; either way the instance is
+shared across the job and, where it implements a disposal protocol, disposed as the job ends, so concurrent or repeated
+runs share nothing.
 
 # Installation
 

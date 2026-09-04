@@ -7,8 +7,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/commits/main)
 
+### Added
+
+- `bind` accepts an asynchronous implementation, so that a facility whose construction depends on a value only another
+  service can supply, such as a client keyed from a secret vault, is still resolved by a synchronous lookup
+
 ### Changed
 
+- `executor` constructs bound implementations as the execution opens, in binding order, rather than on first lookup,
+  awaiting the asynchronous ones before handing the job control
+- service factories must now construct all or nothing, rolling back whatever they had already done when they let an
+  error through: a construction reaching a bound service the preparation pass has yet to prepare is unwound where it
+  stands and run again from the start once that one is ready
 - `crawl` takes its feeder as a task over the URLs of a level rather than as a function over a single URL, leaving how
   many URLs are retrieved at a time to the tasks already at hand: a forked feeder retrieves several at once, an unforked
   one retrieves them in turn

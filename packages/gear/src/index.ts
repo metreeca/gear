@@ -26,8 +26,9 @@
  *
  * > [!IMPORTANT]
  * >
- * > Service instances are constructed on first use, shared across the job, and, where they implement a disposal
- * > protocol, disposed as it ends. Concurrent or repeated runs share nothing.
+ * > Bound implementations are constructed as the execution opens, unbound defaults on first use; either way the
+ * > instance is shared across the job and, where it implements a disposal protocol, disposed as the job ends.
+ * > Concurrent or repeated runs share nothing.
  *
  * @module index
  *
@@ -54,7 +55,34 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { isAsyncDisposable, isDisposable } from "./index.core.js";
 
 
+/**
+ * Enclosing service locator.
+ *
+ * Follows a job across the asynchronous continuations it spawns, so that a lookup made anywhere within it is resolved
+ * against the execution it runs in without the job carrying the locator along. An empty store marks code running
+ * outside any execution, disposal and work that escaped a settled job included.
+ */
 const locators = new AsyncLocalStorage<<T extends Defined>(service: Service<T>) => T>();
+
+
+/**
+ * Unprepared binding.
+ *
+ * Unwinds a synchronous lookup reaching a bound service before the preparation pass has constructed it, naming the
+ * binding the pass is to prepare before running the abandoned construction again.
+ */
+class Pending extends Error {
+
+	constructor(
+		readonly service: Service<Defined>,
+		readonly factory: () => Awaitable<Defined>
+	) {
+
+		super(`pending service <${report(service)}>`);
+
+	}
+
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,6 +96,21 @@ const locators = new AsyncLocalStorage<<T extends Defined>(service: Service<T>) 
  * Every invocation stands on its own, sharing no service instance with another. The promise handed back resolves to
  * the value the job produces, settling only after disposal has completed, and rejects if the executor is invoked from
  * within a running execution.
+ *
+ * Bound implementations are constructed as the execution opens, in binding order, before the job is handed control:
+ * an implementation may therefore await whatever it needs and still leave the job a ready instance on a synchronous
+ * lookup, at the cost of being constructed even where the job never resolves it. An execution failing to prepare its
+ * bindings rejects without running the job, disposing whatever it had already constructed.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > A construction reaching a bound service the pass has yet to prepare is abandoned there and run again from the
+ * > start once that one is ready, as a synchronous lookup is unable to wait. Unwinding takes every factory still
+ * > under construction, the bound implementation and any unbound default whose own body reached the pending binding,
+ * > so all of them must meet the all-or-nothing requirement stated at {@link Service}: an implementation acquiring a
+ * > resource or recording state as it awaits is the one this catches out. An unbound default that had already
+ * > completed is kept, and the repeat is handed the same instance. Ordering a binding after the ones it depends on
+ * > spares it the repeat; implementations requiring each other are rejected as circular.
  *
  * > [!IMPORTANT]
  * >
@@ -105,10 +148,13 @@ export type Executable<T> =
  * Pairs a service with the factory standing in for it, so that every lookup of the service within an execution created
  * with the pair yields the substitute's instance.
  *
+ * The substitute may await whatever it needs to construct that instance, as it is constructed when the execution opens
+ * rather than on first lookup, under the terms detailed at {@link Executor}.
+ *
  * @typeParam T The type of the bound service
  */
 export type Binding<T extends Defined> =
-	readonly [service: Service<T>, factory: Service<T>];
+	readonly [service: Service<T>, factory: () => Awaitable<T>];
 
 /**
  * Service factory.
@@ -119,8 +165,23 @@ export type Binding<T extends Defined> =
  * single module and re-exported by reference only, as wrapping it in a new function forks the identity and silently
  * declares a second service.
  *
- * Construction must be synchronous and free of I/O, deferring such work to the instance's own methods. A service that
- * throws must undo whatever it has already done, as a failed lookup records nothing and a later lookup runs it again.
+ * Construction must be synchronous and free of I/O, deferring such work to the instance's own methods; an
+ * implementation {@link bind bound} to a service is exempt, as it is constructed ahead of the job.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > Construction is all or nothing, as a transaction is: a run either records an instance or rolls back, leaving
+ * > nothing of what it had already done. A factory letting an error through must first release whatever it holds and
+ * > undo whatever it has changed, then rethrow that same error: an error raised by a lookup of its own reaches the
+ * > caller unchanged, never replaced by another or swallowed in favour of an alternative, as it may be the signal
+ * > unwinding the construction: one reaching a service the execution is not yet ready to hand over is abandoned where
+ * > it stands and run again from the start. Nothing tells such a run from a first one, so a second must be
+ * > indistinguishable from a first.
+ *
+ * > [!TIP]
+ * >
+ * > Performing every lookup before constructing anything discharges the requirement outright: a factory holding
+ * > nothing at the point an unwinding error can reach it has nothing to release and nothing to undo.
  *
  * Releasing whatever the instance holds is opt-in: an instance exposing a callable `Symbol.asyncDispose` or
  * `Symbol.dispose` member, either its own or inherited, is disposed as the execution ends, as detailed under
@@ -145,9 +206,10 @@ export type Service<T extends Defined> =
  *
  * @param bindings The implementations to be substituted for the duration of each execution
  *
- * @returns An {@link Executor} running a job under `bindings`, rejecting as described there if the job fails, if the
- *          disposal of a service fails, or if it is invoked from within a running execution; the returned value holds
- *          no service instances of its own and may be reused for independent executions
+ * @returns An {@link Executor} running a job under `bindings`, rejecting as described there if a bound implementation
+ *          fails to construct, if the job fails, if the disposal of a service fails, or if it is invoked from within a
+ *          running execution; the returned value holds no service instances of its own and may be reused for
+ *          independent executions
  *
  * @throws {Error} If `bindings` includes more than one binding for the same service, reporting the services bound
  *                 more than once
@@ -160,7 +222,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 	);
 
 	if ( duplicates.length > 0 ) {
-		throw new Error(`duplicate service bindings <${duplicates
+		throw new Error(`duplicate service bindings ${duplicates
 			.map(v => report(v))
 			.map(v => `<${v}>`)
 			.join(", ")
@@ -180,7 +242,13 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 		// the job is wrapped, so that a synchronous throw is reported as a rejection; disposal is handled outside the
 		// execution, so that a disposer resolving a service is rejected
 
-		return locators.run(locate, async () => job()).then(fulfilled, rejected);
+		return locators.run(locate, async () => {
+
+			await prepareBindings();
+
+			return job();
+
+		}).then(fulfilled, rejected);
 
 
 		function locate<T extends Defined>(service: Service<T>): T {
@@ -210,12 +278,19 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 			}
 
+			// a bound implementation is constructed by the preparation pass, which alone is able to await it
+
+			const alias = aliases.get(service);
+
+			if ( alias !== undefined ) {
+				throw new Pending(service, alias);
+			}
+
 			instances.set(service, undefined);
 
 			try {
 
-				const factory = aliases.get(service) ?? service;
-				const instance = factory() as T; // ;(cast) aliases erase the service type
+				const instance = service();
 
 				instances.set(service, instance);
 
@@ -226,6 +301,55 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 				instances.delete(service);
 
 				throw error;
+
+			}
+
+		}
+
+		async function prepareBindings(): Promise<void> {
+
+			return [...aliases].reduce(async (previous, [ service, factory ]) => {
+
+				await previous;
+
+				// a binding reached out of turn is prepared by the construction reaching it, and skipped here
+
+				return instances.has(service) ? undefined : prepare(service, factory);
+
+			}, Promise.resolve());
+
+
+			async function prepare(service: Service<Defined>, factory: () => Awaitable<Defined>): Promise<void> {
+
+				// the placeholder is retained across the whole preparation, so that a construction reaching back here
+				// while it is under way is reported as circular
+
+				instances.set(service, undefined);
+
+				try {
+
+					instances.set(service, await factory());
+
+				} catch ( error ) {
+
+					if ( error instanceof Pending ) {
+
+						// the abandoned construction is run again from the start once the binding it reached is
+						// ready, so the runs are as many as the bindings it requires ahead of their own preparation,
+						// plus one
+
+						await prepare(error.service, error.factory);
+						await prepare(service, factory);
+
+					} else {
+
+						instances.delete(service);
+
+						throw error;
+
+					}
+
+				}
 
 			}
 
@@ -274,7 +398,8 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 				} catch ( error ) {
 
-					return suppressed === undefined ? error : new AggregateError([ suppressed, error ], "disposal failed");
+					return suppressed === undefined ? error
+						: new AggregateError([ suppressed, error ], "disposal failed");
 
 				}
 
@@ -289,14 +414,30 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 /**
  * Binds an implementation to a service.
  *
+ * The implementation may be asynchronous, so that a facility whose construction depends on a value only another
+ * service can supply, such as a client keyed from a secret vault, is still resolved by a synchronous lookup: bound
+ * implementations are constructed and awaited as the execution opens, under the terms detailed at {@link Executor}.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > An implementation is held to the same all-or-nothing requirement as any other {@link Service factory}, and an
+ * > asynchronous one is the most exposed to it: whatever it awaits may be awaited again from scratch, as the run that
+ * > started it may be abandoned before it records an instance.
+ *
  * @typeParam T The type of the bound service
  *
  * @param service The service to be bound
- * @param factory The implementation to be used in its place
+ * @param factory The implementation to be used in its place, awaited before the job runs where it is asynchronous
  *
  * @returns An immutable binding pairing `service` with `factory`
+ *
+ * @example
+ *
+ * ```ts
+ * bind(createClient, async () => new Client(await service(createVault)("api.key")));
+ * ```
  */
-export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<Service<T>>): Binding<T> {
+export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<() => Awaitable<T>>): Binding<T> {
 
 	return Object.freeze([service, factory]);
 
@@ -307,7 +448,8 @@ export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<Se
  * Resolves a service.
  *
  * Returns the instance produced by the implementation bound to `service` in the enclosing execution, or by `service`
- * itself if unbound, constructing it on first lookup and sharing it with every later lookup in the same execution.
+ * itself if unbound: a bound implementation is ready before the job is handed control, an unbound default is
+ * constructed on first lookup, and either way every later lookup in the same execution is handed the same instance.
  *
  * > [!WARNING]
  * >
@@ -325,6 +467,10 @@ export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<Se
  *
  * @throws {Error} If the service depends on itself, either directly or through other services, reporting the
  *                 dependency chain
+ *
+ * @throws {Error} If `service` is bound and looked up from a factory the execution is constructing before that
+ *                 binding is ready, unwinding the construction to be run again as detailed at {@link Executor}; a
+ *                 factory must let this error through unchanged rather than replacing or swallowing it
  */
 export function service<T extends Defined>(service: Service<T>): T {
 
