@@ -105,11 +105,12 @@ class Pending extends Error {
  * > [!IMPORTANT]
  * >
  * > A construction reaching a bound service the pass has yet to prepare is abandoned there and run again from the
- * > start once that one is ready, as a synchronous lookup is unable to wait. Every factory drawn into it is unwound,
- * > the bound implementation and whatever unbound defaults it required alike, so all of them must meet the
- * > all-or-nothing requirement stated at {@link Service}: an implementation acquiring a resource or recording state
- * > as it awaits is the one this catches out. Ordering a binding after the ones it depends on spares it the repeat;
- * > implementations requiring each other are rejected as circular.
+ * > start once that one is ready, as a synchronous lookup is unable to wait. Unwinding takes every factory still
+ * > under construction, the bound implementation and any unbound default whose own body reached the pending binding,
+ * > so all of them must meet the all-or-nothing requirement stated at {@link Service}: an implementation acquiring a
+ * > resource or recording state as it awaits is the one this catches out. An unbound default that had already
+ * > completed is kept, and the repeat is handed the same instance. Ordering a binding after the ones it depends on
+ * > spares it the repeat; implementations requiring each other are rejected as circular.
  *
  * > [!IMPORTANT]
  * >
@@ -171,10 +172,16 @@ export type Binding<T extends Defined> =
  * >
  * > Construction is all or nothing, as a transaction is: a run either records an instance or rolls back, leaving
  * > nothing of what it had already done. A factory letting an error through must first release whatever it holds and
- * > undo whatever it has changed, and it must let an error raised by a lookup of its own through untouched rather
- * > than catching it and falling back on an alternative, as that error may be the signal unwinding the construction:
- * > one reaching a service the execution is not yet ready to hand over is abandoned where it stands and run again
- * > from the start. Nothing tells such a run from a first one, so a second must be indistinguishable from a first.
+ * > undo whatever it has changed, then rethrow that same error: an error raised by a lookup of its own reaches the
+ * > caller unchanged, never replaced by another or swallowed in favour of an alternative, as it may be the signal
+ * > unwinding the construction: one reaching a service the execution is not yet ready to hand over is abandoned where
+ * > it stands and run again from the start. Nothing tells such a run from a first one, so a second must be
+ * > indistinguishable from a first.
+ *
+ * > [!TIP]
+ * >
+ * > Performing every lookup before constructing anything discharges the requirement outright: a factory holding
+ * > nothing at the point an unwinding error can reach it has nothing to release and nothing to undo.
  *
  * Releasing whatever the instance holds is opt-in: an instance exposing a callable `Symbol.asyncDispose` or
  * `Symbol.dispose` member, either its own or inherited, is disposed as the execution ends, as detailed under
@@ -463,7 +470,7 @@ export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<()
  *
  * @throws {Error} If `service` is bound and looked up from a factory the execution is constructing before that
  *                 binding is ready, unwinding the construction to be run again as detailed at {@link Executor}; a
- *                 factory must let this error through rather than catching it
+ *                 factory must let this error through unchanged rather than replacing or swallowing it
  */
 export function service<T extends Defined>(service: Service<T>): T {
 
