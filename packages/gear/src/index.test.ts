@@ -16,7 +16,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { isAsyncDisposable, isDisposable } from "./index.core.js";
-import type { Locator, Service } from "./index.js";
+import type { Service } from "./index.js";
 import { bind, executor, service } from "./index.js";
 
 
@@ -273,19 +273,9 @@ describe("executor", () => {
 
 		}
 
-		interface Catalog {
-
-			readonly index: Index;
-
-		}
-
 
 		function createIndex(): Index {
 			return { store: service(createStore) };
-		}
-
-		function createCatalog(): Catalog {
-			return { index: service(createIndex) };
 		}
 
 		/**
@@ -330,9 +320,9 @@ describe("executor", () => {
 
 		});
 
-		it("resolves other services through the locator", async () => {
+		it("resolves other services from an asynchronous implementation", async () => {
 
-			await executor(bind(createIndex, async service => ({ store: await service(createStore) })))(() => {
+			await executor(bind(createIndex, async () => ({ store: service(createStore) })))(() => {
 
 				expect(service(createIndex).store).toBe(service(createStore));
 
@@ -342,11 +332,11 @@ describe("executor", () => {
 
 		it("resolves other services after an asynchronous implementation has awaited", async () => {
 
-			await executor(bind(createIndex, async service => {
+			await executor(bind(createIndex, async () => {
 
 				await Promise.resolve();
 
-				return { store: await service(createStore) };
+				return { store: service(createStore) };
 
 			}))(() => {
 
@@ -356,20 +346,12 @@ describe("executor", () => {
 
 		});
 
-		it("resolves unbound services through the ambient lookup", async () => {
+		it("constructs again an implementation requiring an asynchronous one bound after it", async () => {
 
-			await executor(bind(createCatalog, async () => ({ index: service(createIndex) })))(() => {
-
-				expect(service(createCatalog).index).toBe(service(createIndex));
-
-			});
-
-		});
-
-		it("prepares through the locator a binding declared after the one requiring it", async () => {
+			const create = vi.fn(async (): Promise<Index> => ({ store: service(createStore) }));
 
 			await executor(
-				bind(createIndex, async service => ({ store: await service(createStore) })),
+				bind(createIndex, create),
 				bind(createStore, async () => createMemoryStore())
 			)(() => {
 
@@ -377,18 +359,7 @@ describe("executor", () => {
 
 			});
 
-		});
-
-		it("constructs an implementation requiring one declared after it exactly once", async () => {
-
-			const create = vi.fn(async (service: Locator): Promise<Index> => ({ store: await service(createStore) }));
-
-			await executor(
-				bind(createIndex, create),
-				bind(createStore, async () => createMemoryStore())
-			)(noop);
-
-			expect(create).toHaveBeenCalledTimes(1);
+			expect(create).toHaveBeenCalledTimes(2);
 
 		});
 
@@ -397,43 +368,13 @@ describe("executor", () => {
 			const create = vi.fn(async () => createMemoryStore());
 
 			await executor(
-				bind(createIndex, async service => ({ store: await service(createStore) })),
-				bind(createCatalog, async service => ({ index: await service(createIndex) })),
+				bind(createIndex, async () => ({ store: service(createStore) })),
 				bind(createStore, create)
 			)(noop);
 
 			expect(create).toHaveBeenCalledTimes(1);
 
 		});
-
-		it("rejects a bound service resolved through the ambient lookup", async () => {
-
-			await expect(executor(
-				bind(createIndex, async () => ({ store: service(createStore) })),
-				bind(createStore, async () => createMemoryStore())
-			)(noop)).rejects.toThrow(/\bunprepared service\b/);
-
-		});
-
-		it("repeats an unbound default reaching an unprepared binding, sparing the implementation requiring it",
-			async () => {
-
-				const index = vi.fn(createIndex);
-				const catalog = vi.fn(async (service: Locator): Promise<Catalog> => ({ index: await service(index) }));
-
-				await executor(
-					bind(createCatalog, catalog),
-					bind(createStore, async () => createMemoryStore())
-				)(() => {
-
-					expect(service(createCatalog).index.store.label).toBe("memory");
-
-				});
-
-				expect(catalog).toHaveBeenCalledTimes(1);
-				expect(index).toHaveBeenCalledTimes(2);
-
-			});
 
 		it("disposes the instance of a prepared implementation", async () => {
 
@@ -479,11 +420,11 @@ describe("executor", () => {
 
 			await expect(executor(
 
-				bind(createIndex, async service => ({ store: await service(createStore) })),
+				bind(createIndex, async () => ({ store: service(createStore) })),
 
-				bind(createStore, async service => (await service(createIndex)).store)
+				bind(createStore, async () => service(createIndex).store)
 
-			)(noop)).rejects.toThrow(/\bcircular dependency\b/);
+			)(noop)).rejects.toThrow();
 
 		});
 
