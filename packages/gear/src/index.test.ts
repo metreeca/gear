@@ -261,6 +261,175 @@ describe("executor", () => {
 
 	});
 
+
+	describe("preparation", () => {
+
+		class BindingError extends Error {}
+
+
+		interface Index {
+
+			readonly store: Store;
+
+		}
+
+
+		function createIndex(): Index {
+			return { store: service(createStore) };
+		}
+
+		/**
+		 * Creates an implementation constructing an asynchronously disposable store releasing through `dispose`.
+		 */
+		function releasable(dispose: AsyncDisposable[typeof Symbol.asyncDispose]): () => Store & AsyncDisposable {
+			return () => ({ label: "memory", [Symbol.asyncDispose]: dispose });
+		}
+
+
+		it("constructs bound implementations before the job runs", async () => {
+
+			const create = vi.fn(createMemoryStore);
+
+			await executor(bind(createStore, create))(noop);
+
+			expect(create).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("constructs bound implementations in binding order", async () => {
+
+			const createFirst = vi.fn(createMemoryStore);
+			const createSecond = vi.fn(createTestStore);
+
+			await executor(
+				bind(createStore, createFirst),
+				bind(createTestStore, createSecond)
+			)(noop);
+
+			expect(createFirst.mock.invocationCallOrder[0]).toBeLessThan(createSecond.mock.invocationCallOrder[0]);
+
+		});
+
+		it("awaits an asynchronous implementation", async () => {
+
+			await executor(bind(createStore, async () => createMemoryStore()))(() => {
+
+				expect(service(createStore).label).toBe("memory");
+
+			});
+
+		});
+
+		it("resolves other services from an asynchronous implementation", async () => {
+
+			await executor(bind(createIndex, async () => ({ store: service(createStore) })))(() => {
+
+				expect(service(createIndex).store).toBe(service(createStore));
+
+			});
+
+		});
+
+		it("resolves other services after an asynchronous implementation has awaited", async () => {
+
+			await executor(bind(createIndex, async () => {
+
+				await Promise.resolve();
+
+				return { store: service(createStore) };
+
+			}))(() => {
+
+				expect(service(createIndex).store).toBe(service(createStore));
+
+			});
+
+		});
+
+		it("constructs again an implementation requiring an asynchronous one bound after it", async () => {
+
+			const create = vi.fn(async (): Promise<Index> => ({ store: service(createStore) }));
+
+			await executor(
+				bind(createIndex, create),
+				bind(createStore, async () => createMemoryStore())
+			)(() => {
+
+				expect(service(createIndex).store.label).toBe("memory");
+
+			});
+
+			expect(create).toHaveBeenCalledTimes(2);
+
+		});
+
+		it("constructs an asynchronous implementation once for all the services requiring it", async () => {
+
+			const create = vi.fn(async () => createMemoryStore());
+
+			await executor(
+				bind(createIndex, async () => ({ store: service(createStore) })),
+				bind(createStore, create)
+			)(noop);
+
+			expect(create).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("disposes the instance of a prepared implementation", async () => {
+
+			const dispose = vi.fn();
+
+			await executor(bind(createStore, releasable(dispose)))(noop);
+
+			expect(dispose).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("rejects without running the job when a binding fails to prepare", async () => {
+
+			const job = vi.fn();
+
+			await expect(executor(bind(createStore, async (): Promise<Store> => {
+
+				throw new BindingError();
+
+			}))(job)).rejects.toThrow(BindingError);
+
+			expect(job).not.toHaveBeenCalled();
+
+		});
+
+		it("disposes the instances constructed before a failed preparation", async () => {
+
+			const dispose = vi.fn();
+
+			await expect(executor(
+
+				bind(createStore, releasable(dispose)),
+
+				bind(createTestStore, async (): Promise<Store> => { throw new BindingError(); })
+
+			)(noop)).rejects.toThrow(BindingError);
+
+			expect(dispose).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("rejects mutually dependent asynchronous implementations", async () => {
+
+			await expect(executor(
+
+				bind(createIndex, async () => ({ store: service(createStore) })),
+
+				bind(createStore, async () => service(createIndex).store)
+
+			)(noop)).rejects.toThrow();
+
+		});
+
+	});
+
 });
 
 describe("bind", () => {

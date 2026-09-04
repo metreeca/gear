@@ -7,7 +7,7 @@ external sources and converting it into the values a pipeline works on. The task
 which supplies the shared services they draw on.
 
 - **Ready-Made Tasks**: retrieval and parsing for the usual interchange formats, chaining alongside any other task
-- **Shared Services**: the working space, secrets and caches a run needs, built on demand and released as it ends
+- **Shared Services**: the working space, secrets and caches a run needs, built for the run and released as it ends
 - **Custom Bindings**: a stubbed, throttled or cached implementation swapped in for a run, leaving the job untouched
 - **Minimal Footprint**: one package per input type, each pulling in only the libraries that type needs
 
