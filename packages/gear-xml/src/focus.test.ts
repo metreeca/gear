@@ -194,6 +194,66 @@ describe("process", () => {
 
 		});
 
+		it("leaves the layout a page is set out with out of the reckoning", async () => {
+
+			const content = `<div id="flat">`
+				+`<p>alpha beta gamma delta epsilon zeta</p>`
+				+`<br><br><br><hr>`
+				+`<p>eta theta iota kappa lambda mu</p>`
+				+`<br><br><br><hr>`
+				+`<img src="cat.png">`
+				+`<p>nu xi omicron pi rho sigma</p>`
+				+`</div>`;
+
+			expect(markup(process(tree(content)))).toBe(content);
+
+		});
+
+		it("counts the framing a container holds against it", async () => {
+
+			expect(markup(process(tree(
+				`<div id="framed">`
+				+`<script>const alpha = 1;</script>`
+				+`<p>alpha beta gamma delta epsilon zeta</p>`
+				+`<script>const beta = 2;</script>`
+				+`<p>eta theta iota kappa lambda mu</p>`
+				+`<script>const gamma = 3;</script>`
+				+`</div>`
+			))))
+				.toBe(`<p>alpha beta gamma delta epsilon zeta</p>`);
+
+		});
+
+		it("leaves the metadata a page is marked up with out of the reckoning", async () => {
+
+			const content = `<div id="marked">`
+				+`<meta itemprop="name" content="Alpha">`
+				+`<meta itemprop="startDate" content="2026-09-04">`
+				+`<meta itemprop="endDate" content="2026-09-05">`
+				+`<meta itemprop="location" content="Beta">`
+				+`<meta itemprop="price" content="0">`
+				+`<p>alpha beta gamma delta epsilon zeta</p>`
+				+`<figure><img src="cat.png"></figure>`
+				+`<p>eta theta iota kappa lambda mu</p>`
+				+`<p>nu xi omicron pi rho sigma</p>`
+				+`</div>`;
+
+			expect(markup(process(tree(content)))).toBe(content);
+
+		});
+
+		it("discounts a container for the text it holds outside its content", async () => {
+
+			expect(markup(process(tree(
+				`<div id="mixed">`
+				+`<p>alpha beta gamma delta epsilon zeta</p>`
+				+`<figure>eta theta iota kappa lambda mu nu xi</figure>`
+				+`</div>`
+			))))
+				.toBe(`<p>alpha beta gamma delta epsilon zeta</p>`);
+
+		});
+
 		it("selects the outermost of equally dense elements", async () => {
 
 			expect(markup(process(tree(`<div id="outer"><div id="inner"><p>alpha beta</p></div></div>`))))
@@ -407,6 +467,13 @@ describe("process", () => {
 				source: "https://agenda.coimbra.pt/event/ykclqzc9xdssmeu9",
 				regions: [ "div#main" ],
 				holds: [ "Núcleo da Guitarra e do Fado de Coimbra", "Torre de Anto" ],
+				drops: [ "Aviso Legal", "agendacoimbra@coimbra.pt" ]
+			},
+
+			"agenda-coimbra-exhibition": { // prose laid out as a flat run of paragraphs punctuated by line breaks
+				source: "https://agenda.coimbra.pt/event/8yu81jpbddstdk8o",
+				regions: [ "div#main" ],
+				holds: [ "Espelhos - Dentro e fora da realidade", "UC Exploratório", "26 Mar 2026" ],
 				drops: [ "Aviso Legal", "agendacoimbra@coimbra.pt" ]
 			},
 

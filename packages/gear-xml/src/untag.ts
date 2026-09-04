@@ -38,33 +38,41 @@ import { process } from "./untag.core.js";
  *
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
- * - `h1`, `h2`, `h3` — a heading of the matching level, set off by a blank line
+ * - `h1`, `h2`, `h3` — a heading of the matching level, set off by a blank line, left out where it carries no text
  * - `p`, `section`, `article` — the content, set off by a blank line
  * - `div` — the content, set off by a blank line where the element states text of its own or wraps a lone element,
  *   whitespace aside, and closed by a line break otherwise, so that a field reads as a paragraph while the wrappers a
  *   page is laid out with don't split its content into blocks of their own
  * - `ul`, `ol` — a list set off from the surrounding content by a blank line, ordered lists marked as unordered ones
- * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost
+ * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost, its content
+ *   opening on the line the marker is written on, however the item lays it out, left out where it carries neither text
+ *   nor an image
  * - `br` — a line break, two of them laying down the blank line a paragraph is often split with, a longer run
  *   saturating at that blank line and a run opening the text dropped
  * - `hr` — a thematic break, set off by a blank line
- * - `a` — a link to the `href` stated, labelled by the content
+ * - `a` — a link to the `href` stated, labelled by the content, left out where it carries neither text nor an image
  * - `img` — an image reference to the `src` stated, labelled by the `alt` text
- * - `strong`, `b` — strong emphasis
- * - `em`, `i` — emphasis
+ * - `strong`, `b` — strong emphasis, the whitespace bordering the content written outside the markers, as markers
+ *   padded with it read as text rather than as emphasis, left out where it carries no text, though the space it holds
+ *   is kept
+ * - `em`, `i` — emphasis, laid out as strong emphasis is
  * - `script` — a fenced `json` block, if the type is `application/ld+json`, set off by a blank line; nothing
  *   otherwise
  * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
  *
  * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
- * wrappers a page is built from leave no trace of their own.
+ * wrappers a page is built from leave no trace of their own. A link or an item is kept for the content a reader is
+ * shown, the caption a graphic states inside its own markup counting for nothing, so that a decorative link leaves no
+ * empty label behind.
  *
  * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
  * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that
  * emphasis misplaced with respect to the surrounding spaces doesn't run words together. A comment carries no text but
- * counts as a space, so that the markers a framework leaves between elements keep the words on either side apart. A
- * space never opens a line or closes a link label, so that the whitespace a page is laid out with doesn't reach the
- * text; leading and trailing whitespace is stripped from each rendering.
+ * counts as a space, so that the markers a framework leaves between elements keep the words on either side apart, as
+ * do the fields a page lays out side by side. Text bordering an element runs into it as stated, so that a word split
+ * across an element and the text beside it is not broken apart. A space never opens a line or closes a link label, so
+ * that the whitespace a page is laid out with doesn't reach the text; leading and trailing whitespace is stripped from
+ * each rendering.
  *
  * > [!NOTE]
  * >

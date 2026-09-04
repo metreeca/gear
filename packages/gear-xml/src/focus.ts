@@ -43,8 +43,11 @@ import { process } from "./focus.core.js";
  * Where the page states none either, the region is the element holding the densest text: a long run of text counts for
  * more than the same amount of text scattered across short ones, and a container counts by how much of what it holds is
  * content rather than framing. Scripts, styles, navigation, headers, footers, sidebars, controls and embedded objects
- * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone. Where two
- * elements are equally dense the one stated first wins, which is the outermost of a chain of sole children.
+ * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone, though a
+ * container is still discounted for holding them. An element carrying no text of its own weighs on neither side of the
+ * reckoning, the line breaks, rules, images and metadata a page is laid out with among them, so that a run of
+ * paragraphs is weighed as prose rather than discounted for the punctuation it is set out with. Where two elements are
+ * equally dense the one stated first wins, which is the outermost of a chain of sole children.
  *
  * Where the tree is a page, that is where it states an `html` or a `body` element or a title, the regions are handed
  * on inside the `body` of an `html` element, so that a consumer works on a page as it drew one. The `html` element

@@ -19,13 +19,21 @@ import { escape } from "@metreeca/core/strings";
 import type { AnyNode, Element, NodeWithChildren } from "domhandler";
 import { hasChildren, isComment, isTag, isText } from "domhandler";
 import { DomUtils } from "htmlparser2";
-import { normalize, titled } from "./index.core.js";
+import { name, normalize, titled } from "./index.core.js";
 
 
 /**
  * The indentation each enclosing list beyond the outermost adds to an item.
  */
 const Indent = "  ";
+
+/**
+ * The elements standing for none of the content a link or an item is read by.
+ *
+ * Lists the elements rendered as nothing, alongside the scripts a JSON-LD block is drawn from, which state metadata
+ * rather than the label a reader sees.
+ */
+const Unseen = new Set([ "head", "style", "title", "script" ]);
 
 
 /**
@@ -49,6 +57,12 @@ type Buffer = {
 	 */
 	readonly level: number;
 
+	/**
+	 * Whether the line holds the marker of an item and no content yet, so that the content of an item opens on the
+	 * line its marker was written on, however the item lays it out.
+	 */
+	readonly item: boolean;
+
 }
 
 
@@ -63,33 +77,40 @@ type Buffer = {
  *
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
- * - `h1`, `h2`, `h3` — a heading of the matching level, set off by a blank line
+ * - `h1`, `h2`, `h3` — a heading of the matching level, set off by a blank line, left out where it carries no text
  * - `p`, `section`, `article` — the content, set off by a blank line
  * - `div` — the content, set off by a blank line where the element states text of its own or wraps a lone element,
  *   whitespace aside, and closed by a line break otherwise, so that a field reads as a paragraph while the wrappers a
  *   page is laid out with don't split its content into blocks of their own
  * - `ul`, `ol` — a list set off from the surrounding content by a blank line, ordered lists marked as unordered ones
- * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost
+ * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost, its content
+ *   opening on the line the marker is written on, however the item lays it out, left out where it carries neither text
+ *   nor an image
  * - `br` — a line break, two of them laying down the blank line a paragraph is often split with, a longer run
  *   saturating at that blank line and a run opening the text dropped
  * - `hr` — a thematic break, set off by a blank line
- * - `a` — a link to the `href` stated, labelled by the content
+ * - `a` — a link to the `href` stated, labelled by the content, left out where it carries neither text nor an image
  * - `img` — an image reference to the `src` stated, labelled by the `alt` text
- * - `strong`, `b` — strong emphasis
- * - `em`, `i` — emphasis
+ * - `strong`, `b` — strong emphasis, the whitespace bordering the content written outside the markers, as markers
+ *   padded with it read as text rather than as emphasis, left out where it carries no text, though the space it holds
+ *   is kept
+ * - `em`, `i` — emphasis, laid out as strong emphasis is
  * - `script` — a fenced `json` block, if the type is `application/ld+json`, set off by a blank line; nothing
  *   otherwise
  * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
  *
  * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
- * wrappers a page is built from leave no trace of their own.
+ * wrappers a page is built from leave no trace of their own. A link or an item is kept for the content a reader is
+ * shown, the caption a graphic states inside its own markup counting for nothing, so that a decorative link leaves no
+ * empty label behind.
  *
  * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
  * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that
  * emphasis misplaced with respect to the surrounding spaces doesn't run words together. A comment carries no text but
- * counts as a space, so that the markers a framework leaves between elements keep the words on either side apart. A
- * space never opens a line or closes a link label, so that the whitespace a page is laid out with doesn't reach the
- * text.
+ * counts as a space, so that the markers a framework leaves between elements keep the words on either side apart, as
+ * do the fields a page lays out side by side. Text bordering an element runs into it as stated, so that a word split
+ * across an element and the text beside it is not broken apart. A space never opens a line or closes a link label, so
+ * that the whitespace a page is laid out with doesn't reach the text.
  *
  * Where the tree states a title, the rendering opens with a YAML frontmatter block stating it, so that a consumer
  * reads the page the text belongs to alongside the text itself. The title is the first `title` element the tree states
@@ -109,7 +130,7 @@ type Buffer = {
 export function process(node: AnyNode): Markdown {
 
 	const title = titled(node);
-	const body = format({ text: "", space: false, level: 0 }, node).text.trim();
+	const body = format({ text: "", space: false, level: 0, item: false }, node).text.trim();
 
 	return title === undefined ? body : `---\ntitle: "${ escape(plain(title)) }"\n---\n\n${ body }`.trim();
 
@@ -123,7 +144,19 @@ export function process(node: AnyNode): Markdown {
 	}
 
 	function children(buffer: Buffer, node: NodeWithChildren): Buffer {
-		return node.children.reduce(format, buffer);
+		return node.children.reduce((buffer, child, index) => {
+
+			const previous = node.children[index-1];
+
+			// elements stated side by side are kept apart, as a comment between them would; text bordering an element
+			// is left as it stands, lest a word split across the two be broken apart
+
+			return format(previous !== undefined && isTag(previous) && isTag(child)
+				? { ...buffer, space: true }
+				: buffer, child
+			);
+
+		}, buffer);
 	}
 
 	function tag(buffer: Buffer, element: Element): Buffer {
@@ -131,15 +164,15 @@ export function process(node: AnyNode): Markdown {
 
 			case "h1":
 
-				return block(buffer, buffer => append(buffer, "# ", plain(element)));
+				return heading(buffer, element, "#");
 
 			case "h2":
 
-				return block(buffer, buffer => append(buffer, "## ", plain(element)));
+				return heading(buffer, element, "##");
 
 			case "h3":
 
-				return block(buffer, buffer => append(buffer, "### ", plain(element)));
+				return heading(buffer, element, "###");
 
 			case "p":
 			case "section":
@@ -160,7 +193,9 @@ export function process(node: AnyNode): Markdown {
 
 			case "li":
 
-				return wrap(children(append(margin(wrap(buffer)), "- "), element));
+				return rendered(element)
+					? wrap(children({ ...append(margin(wrap(buffer)), "- "), item: true }, element))
+					: buffer;
 
 			case "br":
 
@@ -172,7 +207,9 @@ export function process(node: AnyNode): Markdown {
 
 			case "a":
 
-				return append(clip(children(append(buffer, "["), element)), "](", attribute(element, "href"), ")");
+				return rendered(element)
+					? append(clip(children(append(buffer, "["), element)), "](", attribute(element, "href"), ")")
+					: buffer;
 
 			case "img":
 
@@ -181,12 +218,12 @@ export function process(node: AnyNode): Markdown {
 			case "strong":
 			case "b":
 
-				return append(buffer, "**", plain(element), "**");
+				return emphasis(buffer, element, "**");
 
 			case "em":
 			case "i":
 
-				return append(buffer, "*", plain(element), "*");
+				return emphasis(buffer, element, "*");
 
 			case "script": // JSON-LD metadata is content, whatever else a script carries is not
 
@@ -212,11 +249,20 @@ export function process(node: AnyNode): Markdown {
 
 		return [...strings.join("")].reduce(write, buffer);
 
-		function write({ text, space, level }: Buffer, char: string): Buffer {
-			return char === " " || char === "\t" ? { text, space: true, level } // withheld until content follows it
-				: char === "\r" ? { text, space: false, level }
-					: char === "\n" ? { text: `${text}\n`, space: false, level }
-						: { text: space && !opening(text) ? `${text} ${char}` : `${text}${char}`, space: false, level };
+		function write(buffer: Buffer, char: string): Buffer {
+
+			const { text, space } = buffer;
+
+			return char === " " || char === "\t" ? { ...buffer, space: true } // withheld until content follows it
+				: char === "\r" ? { ...buffer, space: false }
+					: char === "\n" ? { ...buffer, text: `${text}\n`, space: false }
+						: {
+							...buffer,
+							text: space && !opening(text) ? `${text} ${char}` : `${text}${char}`,
+							space: false,
+							item: false // the line has taken the content its marker opened it for
+						};
+
 		}
 
 		function opening(text: string): boolean { // no space is written where a line has yet to take content
@@ -234,24 +280,36 @@ export function process(node: AnyNode): Markdown {
 		return { ...buffer, space: false };
 	}
 
+	// a line opening an item is left as it stands, so that the content of the item lands on it rather than below it
+
 	function feed(buffer: Buffer): Buffer { // closed by a blank line, unless the text already ends with one
+		return buffer.item ? buffer : padded(wrap(buffer));
+	}
 
-		const { text, level } = wrap(buffer);
+	function padded(buffer: Buffer): Buffer {
 
-		return {
-			text: text.length > 2 && text.charAt(text.length - 2) !== "\n" ? `${text}\n` : text,
-			space: false,
-			level
-		};
+		const { text } = buffer;
+
+		return { ...buffer, text: text.length > 2 && text.charAt(text.length - 2) !== "\n" ? `${text}\n` : text };
 
 	}
 
-	function wrap({ text, level }: Buffer): Buffer {
-		return { text: text.length > 1 && !text.endsWith("\n") ? `${text}\n` : text, space: false, level };
+	function wrap(buffer: Buffer): Buffer {
+
+		const { text } = buffer;
+
+		return buffer.item ? buffer
+			: { ...buffer, text: text.length > 1 && !text.endsWith("\n") ? `${text}\n` : text, space: false };
+
 	}
 
-	function split({ text, level }: Buffer): Buffer { // saturating at the blank line two breaks lay down
-		return { text: text.length > 0 && !text.endsWith("\n\n") ? `${text}\n` : text, space: false, level };
+	function split(buffer: Buffer): Buffer { // saturating at the blank line two breaks lay down
+
+		const { text } = buffer;
+
+		return buffer.item ? buffer
+			: { ...buffer, text: text.length > 0 && !text.endsWith("\n\n") ? `${text}\n` : text, space: false };
+
 	}
 
 	function list(buffer: Buffer, content: (buffer: Buffer) => Buffer): Buffer {
@@ -266,8 +324,12 @@ export function process(node: AnyNode): Markdown {
 
 	}
 
-	function margin({ text, space, level }: Buffer): Buffer { // written as it is, as whitespace is otherwise withheld
-		return { text: `${text}${Indent.repeat(Math.max(level - 1, 0))}`, space, level };
+	function margin(buffer: Buffer): Buffer { // written as it is, as whitespace is otherwise withheld
+
+		const { text, level } = buffer;
+
+		return buffer.item ? buffer : { ...buffer, text: `${text}${Indent.repeat(Math.max(level - 1, 0))}` };
+
 	}
 
 
@@ -278,6 +340,41 @@ export function process(node: AnyNode): Markdown {
 		return content.some(isText) // text of its own, mixed with elements or not
 			|| content.length === 1 && content.every(isTag); // a lone element standing in for the text
 
+	}
+
+	function heading(buffer: Buffer, element: Element, marker: string): Buffer {
+
+		const content = plain(element);
+
+		// a heading carrying no text leaves no marker behind
+
+		return content === "" ? buffer : block(buffer, buffer => append(buffer, marker, " ", content));
+
+	}
+
+	function emphasis(buffer: Buffer, element: Element, marker: string): Buffer {
+
+		const text = normalize(DomUtils.textContent(element));
+		const content = text.trim();
+
+		// whitespace bordering the content is written outside the markers, as CommonMark reads no emphasis from
+		// markers padded with it; emphasis carrying no text leaves no markers behind, but stands for the space it holds
+
+		return content === "" ? { ...buffer, space: buffer.space || text.length > 0 }
+			: append(buffer,
+				text.startsWith(" ") ? " " : "", marker, content, marker, text.endsWith(" ") ? " " : ""
+			);
+
+	}
+
+	function rendered(element: Element): boolean {
+		return element.children.some(function shown(node: AnyNode): boolean { // text and images are seen
+			return isText(node) ? node.data.trim() !== ""
+				: !isTag(node) ? false
+					: name(node) === "img" ? true
+						: Unseen.has(name(node)) ? false
+							: node.children.some(shown);
+		});
 	}
 
 	function plain(element: Element): string {

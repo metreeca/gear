@@ -45,6 +45,13 @@ describe("process", () => {
 
 		});
 
+		it("drops a heading carrying no text", async () => {
+
+			expect(process(tree(`<h1></h1><p>alpha</p>`)))
+				.toBe("alpha");
+
+		});
+
 		it("separates block containers with a blank line", async () => {
 
 			expect(process(tree(`<p>alpha</p><section>beta</section><article>gamma</article>`)))
@@ -167,6 +174,27 @@ describe("process", () => {
 
 		});
 
+		it("opens an item on the line of its marker, whatever blocks it holds", async () => {
+
+			expect(process(tree(`<ul><li><p>alpha</p></li><li><p>beta</p></li></ul>`)))
+				.toBe("- alpha\n\n- beta");
+
+		});
+
+		it("drops an item carrying no content", async () => {
+
+			expect(process(tree(`<ul><li>alpha</li><li></li></ul>`)))
+				.toBe("- alpha");
+
+		});
+
+		it("marks an item wrapping nothing but an image", async () => {
+
+			expect(process(tree(`<ul><li><img src="cat.png" alt="a cat"></li></ul>`)))
+				.toBe("- ![a cat](cat.png)");
+
+		});
+
 		it("separates a list from the surrounding content", async () => {
 
 			expect(process(tree(`<p>alpha</p><ul><li>beta</li></ul><p>gamma</p>`)))
@@ -192,6 +220,27 @@ describe("process", () => {
 
 		});
 
+		it("drops a link carrying no content", async () => {
+
+			expect(process(tree(`<p>alpha<a href="/beta"></a>gamma</p>`)))
+				.toBe("alphagamma");
+
+		});
+
+		it("drops a link whose content is itself rendered as nothing", async () => {
+
+			expect(process(tree(`<p><a href="/beta"><svg><title>Beta</title></svg></a>gamma</p>`)))
+				.toBe("gamma");
+
+		});
+
+		it("labels a link with the image it wraps", async () => {
+
+			expect(process(tree(`<p><a href="/beta"><img src="cat.png" alt="a cat"></a></p>`)))
+				.toBe("[![a cat](cat.png)](/beta)");
+
+		});
+
 		it("renders images labelled by their alt text", async () => {
 
 			expect(process(tree(`<p><img src="cat.png" alt="a cat"></p>`)))
@@ -210,6 +259,27 @@ describe("process", () => {
 
 			expect(process(tree(`<p><strong>alpha</strong> <b>beta</b> <em>gamma</em> <i>delta</i></p>`)))
 				.toBe("**alpha** **beta** *gamma* *delta*");
+
+		});
+
+		it("writes the whitespace bordering emphasis outside its markers", async () => {
+
+			expect(process(tree(`<p>alpha<strong> beta </strong>gamma</p>`)))
+				.toBe("alpha **beta** gamma");
+
+		});
+
+		it("drops emphasis carrying no text", async () => {
+
+			expect(process(tree(`<p>alpha<strong></strong>beta</p>`)))
+				.toBe("alphabeta");
+
+		});
+
+		it("keeps the space emphasis carrying nothing but whitespace stands for", async () => {
+
+			expect(process(tree(`<p>alpha<em> </em>beta</p>`)))
+				.toBe("alpha beta");
 
 		});
 
@@ -242,6 +312,36 @@ describe("process", () => {
 
 			expect(process(tree(`<p><span>alpha</span><!----><span>beta</span></p>`)))
 				.toBe("alpha beta");
+
+		});
+
+		it("keeps a boundary between elements as a space, so that fields laid out side by side don't run together",
+			async () => {
+
+				expect(process(tree(`<p><span>26 Mar 2026</span><span>10:00</span><span>a</span></p>`)))
+					.toBe("26 Mar 2026 10:00 a");
+
+			}
+		);
+
+		it("keeps emphasis apart from the emphasis beside it", async () => {
+
+			expect(process(tree(`<p><em>alpha</em><strong>beta</strong></p>`)))
+				.toBe("*alpha* **beta**");
+
+		});
+
+		it("runs an element into the text bordering it", async () => {
+
+			expect(process(tree(`<p><a href="/alpha">alpha</a>beta</p>`)))
+				.toBe("[alpha](/alpha)beta");
+
+		});
+
+		it("opens no line with the space an element boundary stands for", async () => {
+
+			expect(process(tree(`<div><p>alpha</p><p>beta</p></div>`)))
+				.toBe("alpha\n\nbeta");
 
 		});
 
