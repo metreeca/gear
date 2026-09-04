@@ -279,6 +279,14 @@ describe("executor", () => {
 		}
 
 		/**
+		 * Constructs an index, standing for a reusable implementation resolving its own dependencies, such as
+		 * `createDotVault`, called by the factory a binding pairs with a service rather than being that factory.
+		 */
+		function buildIndex(): Index {
+			return { store: service(createStore) };
+		}
+
+		/**
 		 * Creates an implementation constructing an asynchronously disposable store releasing through `dispose`.
 		 */
 		function releasable(dispose: AsyncDisposable[typeof Symbol.asyncDispose]): () => Store & AsyncDisposable {
@@ -349,6 +357,23 @@ describe("executor", () => {
 		it("constructs again an implementation requiring an asynchronous one bound after it", async () => {
 
 			const create = vi.fn(async (): Promise<Index> => ({ store: service(createStore) }));
+
+			await executor(
+				bind(createIndex, create),
+				bind(createStore, async () => createMemoryStore())
+			)(() => {
+
+				expect(service(createIndex).store.label).toBe("memory");
+
+			});
+
+			expect(create).toHaveBeenCalledTimes(2);
+
+		});
+
+		it("constructs again an implementation delegating to one requiring a service bound after it", async () => {
+
+			const create = vi.fn(() => buildIndex());
 
 			await executor(
 				bind(createIndex, create),
