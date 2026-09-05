@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isArray, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
+import { isArray, isDefined, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
 import { unescape } from "@metreeca/core/strings";
 
 
@@ -43,6 +43,9 @@ const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${Index
  *
  * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects held
  * by an array must include an explicit `[*]` or `.*` step.
+ *
+ * Only values a JSON document may state are selected: `null` is selected as the value it states, while `undefined`,
+ * which only a value assembled in code carries, is passed over exactly as an absent property is.
  *
  * @param value The value to select from
  * @param path  The selection path; an empty path or `$` selects `value` itself
@@ -83,9 +86,11 @@ export function select(value: Value, path: string): readonly Value[] {
 
 		const property = dot ?? name;
 
-		return property !== undefined ? fields(selection, unescape(property))
+		// `undefined` isn't a JSON value: a value assembled in code carries it where a parsed one cannot
+
+		return (property !== undefined ? fields(selection, unescape(property))
 			: index !== undefined ? items(selection, Number(index))
-				: members(selection);
+				: members(selection)).filter(isDefined);
 
 	}
 

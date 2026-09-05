@@ -22,6 +22,11 @@ import { select } from "./jpath.core.js";
 import { jpath } from "./jpath.js";
 
 
+// ;(cast) `Value` excludes `undefined`, which only a value assembled in code carries
+
+const undef = undefined as unknown as Value;
+
+
 describe("jpath", () => {
 
 	describe("without a mapper", () => {
@@ -163,6 +168,14 @@ describe("select", () => {
 
 		});
 
+		it("selects nothing for a property explicitly set to undefined", async () => {
+
+			const value: Value = { a: undef };
+
+			expect(select(value, "$.a")).toEqual([]);
+
+		});
+
 		it("selects nothing for an unknown property", async () => {
 
 			const value: Value = { a: 1 };
@@ -229,6 +242,14 @@ describe("select", () => {
 
 		});
 
+		it("selects nothing for an element explicitly set to undefined", async () => {
+
+			const value: Value = { a: [10, undef] };
+
+			expect(select(value, "$.a[1]")).toEqual([]);
+
+		});
+
 		it("selects nothing beyond the end of the array", async () => {
 
 			const value: Value = { a: [10, 20] };
@@ -264,6 +285,15 @@ describe("select", () => {
 
 			expect(select(value, "$.a[*]")).toEqual([10, 20]);
 			expect(select(value, "$.a.*")).toEqual([10, 20]);
+
+		});
+
+		it("passes over values explicitly set to undefined", async () => {
+
+			const value: Value = { a: [10, undef, null], b: { x: 10, y: undef, z: null } };
+
+			expect(select(value, "$.a[*]")).toEqual([10, null]);
+			expect(select(value, "$.b[*]")).toEqual([10, null]);
 
 		});
 

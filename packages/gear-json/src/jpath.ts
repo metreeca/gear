@@ -49,6 +49,9 @@ export type JPath = {
 	 * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects
 	 * held by an array must include an explicit `[*]` or `.*` step.
 	 *
+	 * Only values a JSON document may state are selected: `null` is selected as the value it states, while
+	 * `undefined`, which only a value assembled in code carries, is passed over exactly as an absent property is.
+	 *
 	 * @param path The selection path; an empty path or `$` selects the target values unchanged
 	 *
 	 * @returns An immutable list of the values selected by `path`, ordered by target and, within each target, in
