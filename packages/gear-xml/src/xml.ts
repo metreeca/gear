@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+import type { IRI } from "@metreeca/core/resource";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import type { Document } from "domhandler";
+import { isBase } from "./index.core.js";
 import { process } from "./xml.core.js";
 
 
@@ -26,25 +28,30 @@ import { process } from "./xml.core.js";
  * Creates an XML parser.
  *
  * The generated task converts a feed of XML documents into a feed of parsed trees, one tree per document, so that a
- * consumer works on the structure a document states rather than on its text.
+ * consumer works on the structure a document states rather than on its text. A document holding no text, or only
+ * whitespace, contributes no tree, as does a response carrying no body.
  *
- * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
- * holding no text, or only whitespace, contributes no tree, as does a response carrying no body.
+ * A body is decoded as the `charset` parameter of its content type states, and as UTF-8 where it states none, whatever
+ * the US-ASCII default carried by the `text` media types. A byte order mark opening a document is stripped, both from
+ * text and from a body decoded under a Unicode charset.
  *
- * Response bodies are decoded as the `charset` parameter of the content type states, and as UTF-8 where it states
- * none, whatever the US-ASCII default carried by the `text` media types. A byte order mark opening a document is
- * stripped, both from text and from a body decoded under a Unicode charset.
+ * A response is read whatever it states about itself, so that a mis-declared source is diagnosed without being shut
+ * out: a content type that is not an XML one, `application/xml`, `text/xml` or a `+xml` format such as
+ * `application/rss+xml`, and a charset the platform doesn't decode are both reported to the log and the body read all
+ * the same, decoded as UTF-8 where the charset is not known. The report is the only sign a document is not what it was
+ * taken for, as parsing never fails.
  *
- * A response stating a content type that is not an XML one, `application/xml`, `text/xml` or a `+xml` format such as
- * `application/rss+xml`, or a charset the platform doesn't decode, is reported to the log and read all the same, the
- * body decoded as UTF-8 where the charset is not known, so that a mis-declared source is diagnosed without being shut
- * out. The report is the only sign a document is not what it was taken for, as parsing never fails.
+ * References drawn from a tree resolve by the standard rules without the request being tracked alongside it: the URL
+ * they resolve against is recorded as an `xml:base` attribute on every root element, and a root already declaring one
+ * keeps its own value, resolved against it.
  *
- * Documents parsed from a response record the URL the response was retrieved from as an `xml:base` attribute on each
- * of their root elements, so relative references resolve against it by the standard rules, without the request being
- * tracked alongside the document. The URL is the one the request landed on, which differs from the one it was issued
- * for if it was redirected; a root that already declares `xml:base` keeps its own value, resolved against it. Nothing
- * is recorded for a document given as text, or for a synthesised response, which carries no URL.
+ * The `base` argument states that URL and is taken as it stands. Where it is left out, a response supplies the URL it
+ * was retrieved from, the one the request landed on rather than the one it was issued for. Nothing is recorded where
+ * neither states one, as for a document given as text or a synthesised response.
+ *
+ * The `base` argument is expected to be a hierarchical identifier, that is a scheme followed by a root-relative path:
+ * a relative reference or an opaque identifier such as `urn:example:x` is reported rather than recorded, as either
+ * would leave every reference drawn from the trees silently unresolved.
  *
  * > [!NOTE]
  * >
@@ -68,23 +75,33 @@ import { process } from "./xml.core.js";
  * > The encoding declared by the XML prolog is ignored: a body is decoded as the content type states, so a document
  * > declaring one encoding and served under another is read under the served one.
  *
+ * @param base The URL references resolve against, taken as it stands in place of the URL a response was retrieved from
+ *
  * @returns A task converting a feed of XML documents, given as text or as responses, into a feed of parsed trees
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing documents, or whatever
- *                 reading the body of a response reports
+ * @throws {@link !RangeError RangeError} If `base` is not a hierarchical identifier, that is a scheme followed by a
+ *                                        root-relative path, and so cannot serve as a resolution base
+ *
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing documents, or
+ *                              whatever reading the body of a response reports
  *
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  * @see {@link https://www.rfc-editor.org/rfc/rfc7303 RFC 7303 XML Media Types}
+ * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
  *
  * @group Factories
  */
-export function xml(): Task<string | Response, Document> {
+export function xml(base?: IRI): Task<string | Response, Document> {
+
+	if ( base !== undefined && !isBase(base) ) {
+		throw new RangeError(`expected resolvable base URL <${base}>`);
+	}
 
 	return documents => items((async function* () {
 
 		for await (const document of documents) {
 
-			const tree = await process(document);
+			const tree = await process(document, base);
 
 			if ( tree !== undefined ) { // a document holding no text contributes no value
 

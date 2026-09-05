@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+import type { IRI } from "@metreeca/core/resource";
 import { parseItem } from "@metreeca/http";
 import { log } from "@metreeca/tape";
 import type { Document } from "domhandler";
 import { isTag } from "domhandler";
 import { parseDocument } from "htmlparser2";
+import { isBase } from "./index.core.js";
 
 
 /**
@@ -41,25 +43,30 @@ const logger = log(import.meta.url);
 /**
  * Parses an XML document.
  *
- * Reads a document as a tree, so that a consumer works on the structure the document states rather than on its text.
+ * Reads a document as a tree, so that a consumer works on the structure the document states rather than on its text. A
+ * document holding no text, or only whitespace, is read as no document at all, as is a response carrying no body.
  *
- * The document is given either as text or as a response carrying it as its body. A document holding no text, or only
- * whitespace, is read as no document at all, as is a response carrying no body.
+ * A body is decoded as the `charset` parameter of its content type states, and as UTF-8 where it states none, whatever
+ * the US-ASCII default carried by the `text` media types. A byte order mark opening a document is stripped, both from
+ * text and from a body decoded under a Unicode charset.
  *
- * Response bodies are decoded as the `charset` parameter of the content type states, and as UTF-8 where it states
- * none, whatever the US-ASCII default carried by the `text` media types. A byte order mark opening a document is
- * stripped, both from text and from a body decoded under a Unicode charset.
+ * A response is read whatever it states about itself, so that a mis-declared source is diagnosed without being shut
+ * out: a content type that is not an XML one, `application/xml`, `text/xml` or a `+xml` format such as
+ * `application/rss+xml`, and a charset the platform doesn't decode are both reported to the log and the body read all
+ * the same, decoded as UTF-8 where the charset is not known. The report is the only sign a document is not what it was
+ * taken for, as parsing never fails.
  *
- * A response stating a content type that is not an XML one, `application/xml`, `text/xml` or a `+xml` format such as
- * `application/rss+xml`, or a charset the platform doesn't decode, is reported to the log and read all the same, the
- * body decoded as UTF-8 where the charset is not known, so that a mis-declared source is diagnosed without being shut
- * out. The report is the only sign a document is not what it was taken for, as parsing never fails.
+ * References drawn from the tree resolve by the standard rules without the request being tracked alongside it: the URL
+ * they resolve against is recorded as an `xml:base` attribute on every root element, and a root already declaring one
+ * keeps its own value, resolved against it.
  *
- * A tree parsed from a response records the URL the response was retrieved from as an `xml:base` attribute on each of
- * its root elements, so relative references resolve against it by the standard rules, without the request being
- * tracked alongside the tree. The URL is the one the request landed on, which differs from the one it was issued for
- * if it was redirected; a root that already declares `xml:base` keeps its own value, resolved against it. Nothing is
- * recorded for a document given as text, or for a synthesised response, which carries no URL.
+ * The `base` argument states that URL and is taken as it stands. Where it is left out, a response supplies the URL it
+ * was retrieved from, the one the request landed on rather than the one it was issued for. Nothing is recorded where
+ * neither states one, as for a document given as text or a synthesised response.
+ *
+ * The `base` argument is expected to be a hierarchical identifier, that is a scheme followed by a root-relative path:
+ * a relative reference or an opaque identifier such as `urn:example:x` is reported rather than recorded, as either
+ * would leave every reference drawn from the tree silently unresolved.
  *
  * > [!WARNING]
  * > Parsing is forgiving and never fails. The tree produced is always structurally sound, since anything the source
@@ -73,21 +80,26 @@ const logger = log(import.meta.url);
  * > declaring one encoding and served under another is read under the served one.
  *
  * @param document The document to parse, given either as text or as a response carrying it as its body
+ * @param base The URL references resolve against, taken as it stands in place of the URL a response was retrieved from
  *
  * @returns A tree holding the content of `document`; `undefined` if it holds no text
  *
- * @throws {Error} Whatever reading the body of a response reports
+ * @throws {@link !RangeError RangeError} If `base` is not a hierarchical identifier, that is a scheme followed by a
+ *                                        root-relative path, and so cannot serve as a resolution base
+ *
+ * @throws {@link !Error Error} Whatever reading the body of a response reports
  *
  * @see {@link https://www.w3.org/TR/xml/ Extensible Markup Language (XML) 1.0}
  * @see {@link https://www.rfc-editor.org/rfc/rfc7303 RFC 7303 XML Media Types}
+ * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
  */
-export async function process(document: string | Response): Promise<undefined | Document> {
+export async function process(document: string | Response, base?: IRI): Promise<undefined | Document> {
 
 	const text = (document instanceof Response ? await read(document) : document).trim();
 
 	// a document holding nothing but whitespace, a byte order mark included, holds no content
 
-	return text ? rebase(parseDocument(text, { xmlMode: true }), locate(document)) : undefined;
+	return text ? rebase(parseDocument(text, { xmlMode: true }), locate(document, base)) : undefined;
 
 
 	async function read(response: Response): Promise<string> {
@@ -123,8 +135,24 @@ export async function process(document: string | Response): Promise<undefined | 
 
 	}
 
-	function locate(document: string | Response): undefined | URL {
-		return document instanceof Response && document.url ? new URL(document.url) : undefined;
+	function locate(document: string | Response, base: undefined | IRI): undefined | URL {
+
+		// a stated base is taken as it stands, so the retrieval URL never stands in as the one to resolve it against
+
+		if ( base !== undefined ) {
+
+			if ( !isBase(base) ) {
+				throw new RangeError(`expected resolvable base URL <${base}>`);
+			}
+
+			return new URL(base);
+
+		} else {
+
+			return document instanceof Response && document.url ? new URL(document.url) : undefined;
+
+		}
+
 	}
 
 	function rebase(document: Document, base: URL | undefined): Document {

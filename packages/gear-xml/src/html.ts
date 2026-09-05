@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+import type { IRI } from "@metreeca/core/resource";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import type { Document } from "domhandler";
 import { process } from "./html.core.js";
+import { isBase } from "./index.core.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,32 +28,36 @@ import { process } from "./html.core.js";
  * Creates an HTML parser.
  *
  * The generated task converts a feed of HTML documents into a feed of parsed trees, one tree per document, so that a
- * consumer works on the structure a document states rather than on its text.
- *
- * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
- * holding no text, or only whitespace, contributes no tree, as does a response carrying no body.
+ * consumer works on the structure a document states rather than on its text. A document holding no text, or only
+ * whitespace, contributes no tree, as does a response carrying no body.
  *
  * Trees are shaped as the ones produced for XML, so that a single set of path expressions serves both: names are
  * carried as the source writes them, with no `xmlns` declaration resolved, and no `html`, `head` or `body` element is
  * supplied where the source states none.
  *
- * Response bodies are decoded as the `charset` parameter of the content type states, as the `meta` charset declared in
- * the opening kilobyte of the document where the content type states none, and as UTF-8 where neither does, whatever
- * the windows-1252 default HTML carries for historical reasons. A byte order mark opening a document is stripped, both
+ * A body is decoded as the `charset` parameter of its content type states, as the `meta` charset declared in the
+ * opening kilobyte of the document where the content type states none, and as UTF-8 where neither does, whatever the
+ * windows-1252 default HTML carries for historical reasons. A byte order mark opening a document is stripped, both
  * from text and from a body decoded under a Unicode charset.
  *
- * A response stating a content type other than `text/html` or `application/xhtml+xml`, or a charset the platform
- * doesn't decode, is reported to the log and read all the same, the body decoded as UTF-8 where the charset is not
- * known, so that a mis-declared source is diagnosed without being shut out. The report is the only sign a document is
- * not what it was taken for, as parsing never fails.
+ * A response is read whatever it states about itself, so that a mis-declared source is diagnosed without being shut
+ * out: a content type other than `text/html` or `application/xhtml+xml`, and a charset the platform doesn't decode are
+ * both reported to the log and the body read all the same, decoded as UTF-8 where the charset is not known. The report
+ * is the only sign a document is not what it was taken for, as parsing never fails.
  *
- * Documents record the URL relative references resolve against as an `xml:base` attribute on each of their root
- * elements, so that a consumer resolves them by the standard rules without tracking the request alongside the
- * document. The URL is the one stated by the first `base` element in tree order, resolved against the URL the response
- * was retrieved from, and the retrieval URL itself where the document states none; the retrieval URL is the one the
- * request landed on, which differs from the one it was issued for if it was redirected, and a root that already
- * declares `xml:base` keeps its own value, resolved against it. Nothing is recorded for a document given as text that
- * states no absolute base, or for a synthesised response, which carries no URL.
+ * References drawn from a tree resolve by the standard rules without the request being tracked alongside it: the URL
+ * they resolve against is recorded as an `xml:base` attribute on every root element, and a root already declaring one
+ * keeps its own value, resolved against it.
+ *
+ * That URL is the one stated by the first `base` element in tree order, resolved against the retrieval base. The
+ * `base` argument states that retrieval base and is taken as it stands; where it is left out, a response supplies the
+ * URL it was retrieved from, the one the request landed on rather than the one it was issued for. Nothing is recorded
+ * where no absolute URL is reached, as for a document given as text stating only a relative base.
+ *
+ * The `base` argument is expected to be a hierarchical identifier, that is a scheme followed by a root-relative path:
+ * a relative reference or an opaque identifier such as `urn:example:x` is reported rather than recorded, as either
+ * would leave every reference drawn from the trees silently unresolved. A `base` element a document states is read
+ * leniently all the same, as it is drawn from the source rather than stated by the consumer.
  *
  * > [!NOTE]
  * >
@@ -77,23 +83,34 @@ import { process } from "./html.core.js";
  * > written, while the HTML content hosted by `foreignObject` and the MathML text elements is folded like the rest of
  * > the document.
  *
+ * @param base The URL references resolve against, taken as it stands in place of the URL a response was retrieved
+ *             from, and superseded in turn by a `base` element the document states
+ *
  * @returns A task converting a feed of HTML documents, given as text or as responses, into a feed of parsed trees
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing documents, or whatever
- *                 reading the body of a response reports
+ * @throws {@link !RangeError RangeError} If `base` is not a hierarchical identifier, that is a scheme followed by a
+ *                                        root-relative path, and so cannot serve as a resolution base
+ *
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing documents, or
+ *                              whatever reading the body of a response reports
  *
  * @see {@link https://html.spec.whatwg.org/multipage/ WHATWG HTML Living Standard}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
  *
  * @group Factories
  */
-export function html(): Task<string | Response, Document> {
+export function html(base?: IRI): Task<string | Response, Document> {
+
+	if ( base !== undefined && !isBase(base) ) {
+		throw new RangeError(`expected resolvable base URL <${base}>`);
+	}
 
 	return documents => items((async function* () {
 
 		for await (const document of documents) {
 
-			const tree = await process(document);
+			const tree = await process(document, base);
 
 			if ( tree !== undefined ) { // a document holding no text contributes no value
 

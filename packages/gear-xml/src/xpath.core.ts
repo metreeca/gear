@@ -363,8 +363,8 @@ export function content(value: Target): string {
  *
  * The base is the one stated by the nearest `xml:base` attribute in scope of the value, that is on the value itself, if
  * it is an element, or on its closest ancestor stating one, each value resolved against the ones stated further up. A
- * tree that states none, as one parsed from text does, and one whose outermost `xml:base` is itself a relative
- * reference state no base, as does a value an expression computed, which holds no tree.
+ * tree that states none, as one parsed from text under no stated base does, and one whose outermost `xml:base` is
+ * itself a relative reference state no base, as does a value an expression computed, which holds no tree.
  *
  * @param value The value whose base URL is to be drawn
  *
