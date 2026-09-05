@@ -72,67 +72,7 @@ type Buffer = {
 /**
  * Converts a markup tree to markdown text.
  *
- * Renders the content of an X/HTML tree as plain text, keeping as markdown the structure a reader relies on and
- * dropping the presentation the markup carries around it, so that a page is handed to a consumer reading text rather
- * than markup, a language model among them.
- *
- * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
- *
- * - `h1`, `h2`, `h3` — a heading of the matching level, set off by a blank line, left out where it carries no text
- * - `p`, `section`, `article` — the content, set off by a blank line
- * - `div` — the content, set off by a blank line where the element states text of its own or wraps a lone element,
- *   whitespace aside, and closed by a line break otherwise, so that a field reads as a paragraph while the wrappers a
- *   page is laid out with don't split its content into blocks of their own
- * - `ul`, `ol` — a list set off from the surrounding content by a blank line, ordered lists marked as unordered ones
- * - `li` — an item marked with `-`, indented by two spaces for each enclosing list beyond the outermost, its content
- *   opening on the line the marker is written on, however the item lays it out, left out where it carries neither text
- *   nor an image
- * - `br` — a line break, two of them laying down the blank line a paragraph is often split with, a longer run
- *   saturating at that blank line and a run opening the text dropped
- * - `hr` — a thematic break, set off by a blank line
- * - `a` — a link to the `href` stated, labelled by the content, left out where it carries neither text nor an image
- * - `img` — an image reference to the `src` stated, labelled by the `alt` text
- * - `strong`, `b` — strong emphasis, the whitespace bordering the content written outside the markers, as markers
- *   padded with it read as text rather than as emphasis, left out where it carries no text, though the space it holds
- *   is kept
- * - `em`, `i` — emphasis, laid out as strong emphasis is
- * - `script` — a fenced `json` block, if the type is `application/ld+json`, set off by a blank line; nothing
- *   otherwise
- * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
- *
- * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
- * wrappers a page is built from leave no trace of their own. A link or an item is kept for the content a reader is
- * shown, the caption a graphic states inside its own markup counting for nothing, so that a decorative link leaves no
- * empty label behind.
- *
- * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
- * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that
- * emphasis misplaced with respect to the surrounding spaces doesn't run words together. A comment carries no text but
- * counts as a space, so that the markers a framework leaves between elements keep the words on either side apart, as
- * do the fields a page lays out side by side. Text bordering an element runs into it as stated, so that a word split
- * across an element and the text beside it is not broken apart. A space never opens a line or closes a link label, so
- * that the whitespace a page is laid out with doesn't reach the text.
- *
- * Where the tree states a title or a base URL, the rendering opens with a YAML frontmatter block stating them as
- * `title` and `url`, so that a consumer reads the page the text belongs to alongside the text itself. Each is written
- * as a quoted scalar, so that the punctuation a headline or a query string carries doesn't unsettle the block, and a
- * field is omitted where the tree states no value for it, so that nothing is guessed at.
- *
- * The title is the first `title` element the tree states outside the framing a reader is not after, so that the
- * caption of an embedded object is not mistaken for it; one carrying no text counts as none. The base URL is the one
- * recorded by the root of the tree, that is by the root element the tree is converted from or by the first one a
- * document holds; a base resolving to no absolute URL, as a relative reference standing on its own does, counts as
- * none.
- *
- * @param node The root of the tree to convert; a document is converted as the sequence of the trees its children root
- *
- * @returns The markdown rendering of the content of the tree rooted at `node`, opened by a frontmatter block stating
- *          its title and base URL where it states them and stripped of leading and trailing whitespace; empty if the
- *          tree holds neither content nor either of them
- *
- * @see {@link https://spec.commonmark.org/ CommonMark Spec}
- * @see {@link https://json-ld.org/ JSON-LD}
- * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
+ * Helper backing the `untag()` task, which states the conversion contract.
  */
 export function process(node: AnyNode): Markdown {
 

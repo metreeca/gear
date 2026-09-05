@@ -31,8 +31,9 @@ import { process } from "./focus.core.js";
  * drawn from.
  *
  * The content of a tree is the region the page marks as its own: the first `main` element, or the first element
- * stating `role="main"` where the page states no `main`. Names are matched as the tree carries them, case
- * insensitively.
+ * stating `role="main"` where the page states no `main`. Only what a tree holds below its root is considered, so a
+ * tree rooted at the very element carrying the content is scanned for a region inside it. Names are matched as the
+ * tree carries them, case insensitively.
  *
  * Where the page marks none, the regions are the `article` elements it states, taken together, so that a page listing
  * entries is handed over whole rather than reduced to whichever entry comes first. Articles held by navigation,

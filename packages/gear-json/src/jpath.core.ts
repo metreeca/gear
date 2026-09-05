@@ -31,30 +31,7 @@ const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${Index
 /**
  * Selects values from a JSON value.
  *
- * A path chains steps, each selecting from the values the preceding one selected and written straight after it, with
- * no separator beyond the leading `.` some steps carry:
- *
- * - `$` — `value` itself; allowed only as the leading step, where it may be omitted
- * - `.property` / `property` — object property
- * - `['property']` — object property, with JSON string escapes read leniently: an unaccounted escape stands for the
- *   character it introduces, so `\'` names an apostrophe
- * - `[0]` — array element by index
- * - `.*` / `[*]` — every element of an array or every property value of an object
- *
- * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects held
- * by an array must include an explicit `[*]` or `.*` step.
- *
- * Only values a JSON document may state are selected: `null` is selected as the value it states, while `undefined`,
- * which only a value assembled in code carries, is passed over exactly as an absent property is.
- *
- * @param value The value to select from
- * @param path  The selection path; an empty path or `$` selects `value` itself
- *
- * @returns An immutable list of the values selected by `path`, in document order; empty if `path` selects no value
- *
- * @throws {@link !SyntaxError SyntaxError} If `path` is malformed
- *
- * @see {@link https://www.rfc-editor.org/rfc/rfc9535 RFC 9535 JSONPath Query Expressions for JSON}
+ * Helper backing the `JPath` selector, which states the selection contract.
  */
 export function select(value: Value, path: string): readonly Value[] {
 

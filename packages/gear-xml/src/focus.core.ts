@@ -88,49 +88,7 @@ type Scan = {
 /**
  * Extracts the main content of a markup tree.
  *
- * Draws from an X/HTML page the region carrying its main textual content, leaving behind the navigation, headers,
- * footers, sidebars and controls the page is framed by, so that a consumer works on the content it is after rather
- * than on the boilerplate around it.
- *
- * The region is the one the page marks as its own: the first `main` element, or the first element stating
- * `role="main"` where the page states no `main`. Names are matched as the tree carries them, case insensitively.
- *
- * Where the page marks none, the regions are the `article` elements it states, taken together, so that a page listing
- * entries is handed over whole rather than reduced to whichever entry comes first. Articles held by navigation,
- * headers, footers, sidebars and the other framing a reader is not after are left out, as are the ones nested inside
- * another article, which the enclosing one already carries. Articles carrying no text at all are widgets rather than
- * content, and leave the page to be scored.
- *
- * Where the page states none either, the region is the element holding the densest text: a long run of text counts for
- * more than the same amount of text scattered across short ones, and a container counts by how much of what it holds is
- * content rather than framing. Scripts, styles, navigation, headers, footers, sidebars, controls and embedded objects
- * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone, though a
- * container is still discounted for holding them. An element carrying no text of its own weighs on neither side of the
- * reckoning, the line breaks, rules, images and metadata a page is laid out with among them, so that a run of
- * paragraphs is weighed as prose rather than discounted for the punctuation it is set out with. Where two elements are
- * equally dense the one stated first wins, which is the outermost of a chain of sole children.
- *
- * Where the tree is a page, that is where it states an `html` or a `body` element or a title, the regions are handed
- * over inside the `body` of an `html` element, so that a consumer works on a page as it drew one. The `html` element
- * states a `head` with a copy of the title where the tree states one, so that a consumer reads the page the content
- * belongs to alongside the content itself: the title is the first `title` element stated outside the framing a reader
- * is not after, so that the caption of an embedded object is not mistaken for it. Where the tree is a bare fragment,
- * the regions are handed over as they stand.
- *
- * @param node The root of the tree to draw content from; only its descendants are considered, so a tree rooted at the
- *             very element carrying the content is scanned for a region inside it
- *
- * @returns A document holding a copy of each region carrying the main content of the tree rooted at `node`, several
- *          where the page states several articles, wrapped in a page where the tree is one; `undefined` if the tree
- *          holds no content. Each region records as `xml:base` the URL relative references in it resolve against,
- *          where the tree states one, so that they resolve as they did however deeply the region sat in the page, and
- *          the page wrapping them records the URL the tree itself resolves against, where it states one. The tree
- *          drawn from is left untouched
- *
- * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-main-element WHATWG HTML - The main element}
- * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article
- * element}
- * @see {@link https://www.w3.org/TR/wai-aria-1.2/#main WAI-ARIA - main role}
+ * Helper backing the `focus()` task, which states the extraction contract.
  */
 export function process(node: AnyNode): undefined | Document {
 

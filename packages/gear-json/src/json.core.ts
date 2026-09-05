@@ -48,33 +48,7 @@ const logger = log(import.meta.url);
 /**
  * Parses a JSON document.
  *
- * Reads a document as the single value it holds, so that a consumer works on structured data rather than on text.
- *
- * The document is given either as text or as a response carrying it as its body. A document holding no text, or only
- * whitespace, is read as no value at all, as is a response carrying no body.
- *
- * Response bodies are decoded as UTF-8, the only encoding JSON is exchanged under, and bytes that are not valid UTF-8
- * are read as replacement characters.
- *
- * A response stating a content type that is not a JSON one, `application/json` or a `+json` format such as
- * `application/ld+json`, or a charset other than UTF-8, is reported to the log and read all the same, so that a
- * mis-declared source is diagnosed without being shut out.
- *
- * > [!WARNING]
- * > A document that cannot be parsed is reported to the log and read as no value at all, so that a malformed source
- * > is diagnosed without failing whoever draws on it.
- *
- * @typeParam V The type of the value produced; the parsed document is produced as is, without being validated against
- *              it; defaults to a JSON {@link Object}
- *
- * @param document The document to parse, given either as text or as a response carrying it as its body
- *
- * @returns The value held by `document`; `undefined` if it holds no text or cannot be parsed
- *
- * @throws {@link !Error Error} Whatever reading the body of a response reports
- *
- * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
- * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ * Helper backing the `json()` task, which states the parsing contract.
  */
 export async function process<V extends Value = Object>(document: string | Response): Promise<undefined | V> {
 

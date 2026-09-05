@@ -408,49 +408,7 @@ export function base(value: Target): undefined | URL {
 /**
  * Selects values from a value.
  *
- * Addresses the nodes a tree holds with an XPath 1.0 expression, so that a consumer states what it is after rather
- * than walking the tree itself. Every axis, node test, predicate, operator and core function the language defines is
- * available, evaluated against the given value as the context node.
- *
- * An expression computing a string, a number or a boolean, `count(//item)` among them, reports the value it computed
- * as the single value of the selection, so that whatever the language can express is reached the same way. A value an
- * expression computed holds no tree of its own, and so selects nothing in its turn.
- *
- * Names are matched as the tree holds them, case sensitively, prefixes compared as written and no `xmlns` declaration
- * read, so that a single set of expressions serves both the XML trees and the HTML ones, whose names are folded to
- * lower case as they are parsed:
- *
- * - an unprefixed name test matches an unprefixed name alone, so `item` addresses `<item>` however the document
- *   declares a default namespace, and leaves `<d:item>` out
- * - a prefixed name test matches the prefix as written, so `d:b` addresses `<d:b>` whatever URI the document binds `d`
- *   to, and nothing at all where the same element is written under another prefix
- * - `local-name()` reports a name without its prefix and `name()` reports it whole, so `<d:b>` answers to
- *   `local-name()='b'` and to `name()='d:b'` alike
- * - `namespace-uri()` reports the prefix a name carries rather than the URI a declaration binds it to, as no
- *   declaration is read; the `xml` prefix is the exception, bound by definition, so `@xml:base` and `lang()` read what
- *   they are meant to
- * - the `xmlns` declarations themselves are ordinary attributes, reported by an attribute step like any other
- *
- * The XML declaration and the document type declaration are not nodes, as the language prescribes, and a processing
- * instruction is not one either, so `processing-instruction()` selects nothing; `namespace::` selects nothing in its
- * turn, as no namespace node is held. A `CDATA` section is a text node holding what it wraps, rather than a node of
- * its own.
- *
- * > [!NOTE]
- * >
- * > Expressions are parsed once and kept, and the tree is read as it stands rather than copied, so a selection
- * > repeated across the nodes of a feed costs a lookup and a walk rather than a parse.
- *
- * @param value The value to select from, taken as the context node
- * @param path  The expression to evaluate against `value`
- *
- * @returns An immutable list of the nodes selected by `path`, in document order and each reported once, or of the sole
- *          string, number or boolean it computes; empty if `path` selects no node or `value` is one an expression
- *          computed
- *
- * @throws {@link !SyntaxError SyntaxError} If `path` is malformed
- *
- * @see {@link https://www.w3.org/TR/1999/REC-xpath-19991116/ XML Path Language (XPath) 1.0}
+ * Helper backing the `XPath` selector, which states the selection contract.
  */
 export function select(value: Target, path: string): readonly Target[] {
 
