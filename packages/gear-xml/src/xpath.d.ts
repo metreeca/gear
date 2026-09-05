@@ -14,6 +14,18 @@
  * limitations under the License.
  */
 
+/**
+ * XPath 1.0 evaluation over a caller-supplied tree.
+ *
+ * Types the engine expressions are evaluated with, which publishes no declarations of its own: an evaluator is bound to
+ * an {@link Adapter} reading whatever structure a parser produced, and the nodes handed over to it reach every result
+ * as they are, so that a selection is typed end to end without a cast.
+ *
+ * These declarations stand only until the engine ships its own, and are dropped as it does.
+ *
+ * @see {@link https://www.w3.org/TR/1999/REC-xpath-19991116/ XML Path Language (XPath) 1.0}
+ * @see {@link https://github.com/ursm/xpathway/issues/5 xpathway - Ship TypeScript declarations}
+ */
 declare module "xpathway" {
 
 	export type Adapter<N> = {
