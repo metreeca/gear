@@ -17,8 +17,8 @@
 /**
  * JSON processing tasks.
  *
- * Parses JSON payloads, addresses the values they hold by path, and narrows those values to the types a consumer
- * expects.
+ * Parses JSON payloads, addresses the values they hold by path, retains the ones meeting the constraints a consumer
+ * states, and narrows them to the types it expects.
  *
  * @module index
  *
@@ -31,6 +31,7 @@ import { type IRI, isIRI } from "@metreeca/core/resource";
 
 export * from "./json.js";
 export * from "./jpath.js";
+export * from "./validate.js";
 
 
 /**
