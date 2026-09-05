@@ -330,7 +330,7 @@ describe("process", () => {
 
 		});
 
-		it("records the base URL on the regions rather than on the page", async () => {
+		it("records the base URL on the page as well as on the regions", async () => {
 
 			expect(markup(process(tree(
 				`<html xml:base="https://example.com/docs/index.html">`
@@ -338,7 +338,7 @@ describe("process", () => {
 				+`<body><main><p>beta</p></main></body>`
 				+`</html>`
 			))))
-				.toBe(`<html><head><title>Alpha</title></head>`
+				.toBe(`<html xml:base="https://example.com/docs/index.html"><head><title>Alpha</title></head>`
 					+`<body><main xml:base="https://example.com/docs/index.html"><p>beta</p></main></body></html>`);
 
 		});
@@ -384,6 +384,14 @@ describe("process", () => {
 
 	describe("bases", () => {
 
+		/**
+		 * Reports the `xml:base` recorded by the page a document holds.
+		 */
+		function page(document: undefined | Document): undefined | string {
+			return document?.children.filter(isTag).find(root => root.name === "html")?.attribs["xml:base"];
+		}
+
+
 		it("records the base URL stated by the tree", async () => {
 
 			expect(base(process(tree(
@@ -427,6 +435,39 @@ describe("process", () => {
 
 			expect(base(process(tree(`<main xml:base="sub/page.html"><p>alpha</p></main>`))))
 				.toBe("sub/page.html");
+
+		});
+
+		it("records the base URL stated by the tree on the page holding the regions", async () => {
+
+			expect(page(process(tree(
+				`<html xml:base="https://example.com/docs/index.html"><main><p>alpha</p></main></html>`
+			))))
+				.toBe("https://example.com/docs/index.html");
+
+		});
+
+		it("records on the page the base URL the tree resolves against, not the one a region states", async () => {
+
+			expect(page(process(tree(
+				`<html xml:base="https://example.com/docs/index.html">`
+				+`<main xml:base="sub/page.html"><p>alpha</p></main>`
+				+`</html>`
+			))))
+				.toBe("https://example.com/docs/index.html");
+
+		});
+
+		it("keeps on the page a base URL that cannot be resolved as stated", async () => {
+
+			expect(page(process(tree(`<html xml:base="sub/page.html"><main><p>alpha</p></main></html>`))))
+				.toBe("sub/page.html");
+
+		});
+
+		it("records no base URL on the page where the tree states none", async () => {
+
+			expect(page(process(tree(`<html><main><p>alpha</p></main></html>`)))).toBeUndefined();
 
 		});
 

@@ -123,8 +123,9 @@ type Scan = {
  * @returns A document holding a copy of each region carrying the main content of the tree rooted at `node`, several
  *          where the page states several articles, wrapped in a page where the tree is one; `undefined` if the tree
  *          holds no content. Each region records as `xml:base` the URL relative references in it resolve against,
- *          where the tree states one, so that they resolve as they did however deeply the region sat in the page. The
- *          tree drawn from is left untouched
+ *          where the tree states one, so that they resolve as they did however deeply the region sat in the page, and
+ *          the page wrapping them records the URL the tree itself resolves against, where it states one. The tree
+ *          drawn from is left untouched
  *
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-main-element WHATWG HTML - The main element}
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article
@@ -328,17 +329,37 @@ export function process(node: AnyNode): undefined | Document {
 		/**
 		 * Assembles a page holding a title and a set of regions.
 		 *
+		 * The URL the tree drawn from resolved against travels with the page, so that a consumer reads the URL the
+		 * content belongs to alongside the content itself.
+		 *
 		 * @param title The title the page states, if any
 		 * @param roots The regions the page holds
 		 *
 		 * @returns An `html` element holding `roots` in its `body`, stating a `head` with a copy of `title` where one
-		 *          is stated
+		 *          is stated and as `xml:base` the URL the tree drawn from resolved against, where it states one
 		 */
 		function paged(title: undefined | Element, roots: readonly Element[]): Element {
+
+			const target = located(node);
+
 			return holding("html", [
 				...(title === undefined ? [] : [ holding("head", [ cloneNode(title, true) ]) ]),
 				holding("body", roots)
-			]);
+			], target === undefined ? {} : { "xml:base": target });
+
+		}
+
+		/**
+		 * Draws the URL the tree drawn from resolves against.
+		 *
+		 * @param node The root of the tree drawn from
+		 *
+		 * @returns The URL `node` resolves against, taken from the root element of the tree where `node` is a
+		 *          document; `undefined` if the tree states none
+		 */
+		function located(node: AnyNode): undefined | string {
+			return isTag(node) ? based(node)
+				: nodes.filter(isTag).map(based).find(target => target !== undefined);
 		}
 
 		/**
@@ -346,12 +367,13 @@ export function process(node: AnyNode): undefined | Document {
 		 *
 		 * @param name The name of the element to assemble
 		 * @param children The nodes the element holds
+		 * @param attribs The attributes the element states
 		 *
-		 * @returns An element named `name` owning `children`
+		 * @returns An element named `name` owning `children` and stating `attribs`
 		 */
-		function holding(name: string, children: readonly Element[]): Element {
+		function holding(name: string, children: readonly Element[], attribs: Record<string, string> = {}): Element {
 
-			const element = new Element(name, {}, [ ...children ]);
+			const element = new Element(name, { ...attribs }, [ ...children ]);
 
 			children.forEach(child => { child.parent = element; }); // an element owns the nodes it is handed over
 
@@ -372,40 +394,47 @@ export function process(node: AnyNode): undefined | Document {
 		function rebased(region: Element): Element {
 
 			const clone = cloneNode(region, true);
-			const target = base(region);
+			const target = based(region);
 
 			clone.attribs = target === undefined ? clone.attribs : { ...clone.attribs, "xml:base": target };
 
 			return clone;
 
+		}
 
-			function base(element: Element): undefined | string {
+		/**
+		 * Draws the URL the references held by an element resolve against.
+		 *
+		 * @param element The element whose base URL is to be drawn
+		 *
+		 * @returns The URL `element` resolves against, each `xml:base` in scope resolved against the ones stated
+		 *          further up and one resolving to no absolute URL kept as stated; `undefined` if none is in scope
+		 */
+		function based(element: Element): undefined | string {
 
-				return scoped(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
+			return scoped(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
 
 
-				function scoped(element: Element): readonly string[] {
+			function scoped(element: Element): readonly string[] {
 
-					const parent = element.parent;
-					const inherited = parent !== null && isTag(parent) ? scoped(parent) : [];
+				const parent = element.parent;
+				const inherited = parent !== null && isTag(parent) ? scoped(parent) : [];
 
-					const href = element.attribs["xml:base"];
+				const href = element.attribs["xml:base"];
 
-					return href === undefined ? inherited : [ ...inherited, href ];
+				return href === undefined ? inherited : [ ...inherited, href ];
 
-				}
+			}
 
-				function absolute(href: string, base: undefined | string): undefined | string {
+			function absolute(href: string, base: undefined | string): undefined | string {
 
-					try {
+				try {
 
-						return new URL(href, base).href;
+					return new URL(href, base).href;
 
-					} catch { // a malformed or unresolvable reference leaves the base as it stands
+				} catch { // a malformed or unresolvable reference leaves the base as it stands
 
-						return undefined;
-
-					}
+					return undefined;
 
 				}
 

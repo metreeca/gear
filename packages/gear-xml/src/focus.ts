@@ -57,15 +57,17 @@ import { process } from "./focus.core.js";
  * the regions are handed on as they stand, one document root per region.
  *
  * Each region records as `xml:base` the URL relative references in it resolve against, where the tree states one, so
- * that a consumer resolves them by the standard rules however deeply the region sat in the page it was drawn from. The
- * trees drawn from are left untouched.
+ * that a consumer resolves them by the standard rules however deeply the region sat in the page it was drawn from.
+ * Where the regions are handed on inside a page, the `html` element records as `xml:base` the URL the tree itself
+ * resolves against, so that a consumer reads the URL the content belongs to alongside the content itself. The trees
+ * drawn from are left untouched.
  *
  * > [!NOTE]
  * >
  * > - **Incremental**: each document is emitted as soon as its tree is drawn, so the feed produced runs dry as the
  * >   feed drawn from does and an endless source is read as long as it is consumed.
- * > - **Materialising**: a copy of the regions is assembled in memory as its tree is scored, so peak memory use is
- * >   about the size of the largest tree rather than of the feed.
+ * > - **Streaming**: trees are drawn one at a time and released as soon as the document copying their regions is
+ * >   assembled, so the length of the feed weighs on memory no more than a single tree does.
  * > - **Stateless**: every tree is scored on its own, so the outcome is unaffected by how the feed is split across
  * >   nested feeds or runs.
  *
