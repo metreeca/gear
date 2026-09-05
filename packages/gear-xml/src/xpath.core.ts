@@ -16,8 +16,7 @@
 
 import type { AnyNode, ChildNode, Element, ParentNode } from "domhandler";
 import { hasChildren, isCDATA, isComment, isDirective, isDocument, isTag, isText } from "domhandler";
-import type { Adapter, Resolver, Result } from "xpathway";
-import { createEvaluator, XPathResult } from "xpathway";
+import { type Adapter, createEvaluator, type Resolver, type Result, XPathResult } from "xpathway";
 
 
 /**
