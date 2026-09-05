@@ -95,7 +95,7 @@ export type XPath = {
  *
  * @returns A task converting a feed of parsed X/HTML trees into a feed of XPath selectors
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing trees
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing trees
  *
  * @group Factories
  */
@@ -122,9 +122,9 @@ export function xpath(): Task<AnyNode, XPath>; // without a mapper the selector 
  *
  * @returns A task converting a feed of parsed X/HTML trees into a feed of mapped results
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing trees, or whatever `mapper`
- *                 reports while mapping a tree, including a {@link !SyntaxError SyntaxError} for a malformed
- *                 expression
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing trees, or
+ *                              whatever `mapper` reports while mapping a tree, including a {@link !SyntaxError
+ *                              SyntaxError} for a malformed expression
  *
  * @example
  *

@@ -68,8 +68,8 @@ export type Source<T> =
  * @returns A task converting a feed of seed URLs into a feed of the seeds and the URLs reachable from them, each as a
  *          parsed object
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `walker`
- *                 reports while stating the URLs linked from a URL
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing seeds, or
+ *                              whatever `walker` reports while stating the URLs linked from a URL
  *
  * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
  *                                      own, a relative reference among them
@@ -139,8 +139,8 @@ export function crawl(
  *
  * @returns A task converting a feed of seed URLs into a feed of the results derived from every crawled URL
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `feeder`,
- *                 `walker` and `mapper` report while reading, walking and mapping a URL
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing seeds, or
+ *                              whatever `feeder`, `walker` and `mapper` report while reading, walking and mapping a URL
  *
  * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
  *                                      own, a relative reference among them

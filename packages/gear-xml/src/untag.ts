@@ -85,7 +85,7 @@ import { process } from "./untag.core.js";
  *
  * @returns A task converting a feed of parsed X/HTML trees into a feed of markdown text
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing trees
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing trees
  *
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}

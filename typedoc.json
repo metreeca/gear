@@ -13,11 +13,15 @@
   "markdownLinkExternal": true,
   "externalSymbolLinkMappings": {
     "global": {
+      "Error": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error",
+      "RangeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RangeError",
       "SyntaxError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
       "TypeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
       "URL": "https://developer.mozilla.org/en-US/docs/Web/API/URL"
     },
     "typescript": {
+      "Error": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error",
+      "RangeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RangeError",
       "SyntaxError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
       "TypeError": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
       "URL": "https://developer.mozilla.org/en-US/docs/Web/API/URL"

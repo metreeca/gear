@@ -48,8 +48,8 @@ export type Vault = {
 	 * @returns The value of the parameter identified by `key`, possibly resolved asynchronously, as remote storage
 	 *          requires
 	 *
-	 * @throws {Error} If no parameter is identified by `key`; vaults resolving lookups asynchronously report the
-	 *                 failure as a rejected promise
+	 * @throws {@link !Error Error} If no parameter is identified by `key`; vaults resolving lookups asynchronously
+	 *                              report the failure as a rejected promise
 	 */
 	(key: string): Awaitable<string>
 

@@ -58,7 +58,7 @@ export function getPath(): string {
  *
  * @returns The absolute path of the closest folder holding a `package.json` file, at or above `path`
  *
- * @throws {Error} If neither `path` nor any folder above it holds a `package.json` file
+ * @throws {@link !Error Error} If neither `path` nor any folder above it holds a `package.json` file
  */
 export function getPackage(path: string): string {
 

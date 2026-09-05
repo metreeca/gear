@@ -71,7 +71,7 @@ import { process } from "./focus.core.js";
  *
  * @returns A task converting a feed of parsed X/HTML trees into a feed of documents holding their main content
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing trees
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing trees
  *
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-main-element WHATWG HTML - The main element}
  * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article

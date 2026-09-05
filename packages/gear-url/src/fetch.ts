@@ -106,11 +106,11 @@ const logger = log(import.meta.url);
  *
  * @returns A task converting a feed of requests into a feed of responses
  *
- * @throws {Error} While the feed is consumed, if no execution is running, as the fetch client is resolved from the
- *                 enclosing one
+ * @throws {@link !Error Error} While the feed is consumed, if no execution is running, as the fetch client is resolved
+ *                              from the enclosing one
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing requests, or whatever the
- *                 exchange reports while connecting to a resource or receiving its response
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing requests, or
+ *                              whatever the exchange reports while connecting to a resource or receiving its response
  *
  * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
  *

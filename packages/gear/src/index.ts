@@ -211,8 +211,8 @@ export type Service<T extends Defined> =
  *          running execution; the returned value holds no service instances of its own and may be reused for
  *          independent executions
  *
- * @throws {Error} If `bindings` includes more than one binding for the same service, reporting the services bound
- *                 more than once
+ * @throws {@link !Error Error} If `bindings` includes more than one binding for the same service, reporting the
+ *                              services bound more than once
  */
 export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
@@ -462,15 +462,17 @@ export function bind<T extends Defined>(service: Service<T>, factory: NoInfer<()
  *
  * @returns The service instance for the enclosing execution
  *
- * @throws {Error} If called outside an execution, reporting `service`; disposal of the execution's own services
- *                 counts as outside, as does a callback invoked from work that escaped the execution, such as a timer
+ * @throws {@link !Error Error} If called outside an execution, reporting `service`; disposal of the execution's own
+ *                              services counts as outside, as does a callback invoked from work that escaped the
+ *                              execution, such as a timer
  *
- * @throws {Error} If the service depends on itself, either directly or through other services, reporting the
- *                 dependency chain
+ * @throws {@link !Error Error} If the service depends on itself, either directly or through other services, reporting
+ *                              the dependency chain
  *
- * @throws {Error} If `service` is bound and looked up from a factory the execution is constructing before that
- *                 binding is ready, unwinding the construction to be run again as detailed at {@link Executor}; a
- *                 factory must let this error through unchanged rather than replacing or swallowing it
+ * @throws {@link !Error Error} If `service` is bound and looked up from a factory the execution is constructing before
+ *                              that binding is ready, unwinding the construction to be run again as detailed at
+ *                              {@link Executor}; a factory must let this error through unchanged rather than replacing
+ *                              or swallowing it
  */
 export function service<T extends Defined>(service: Service<T>): T {
 

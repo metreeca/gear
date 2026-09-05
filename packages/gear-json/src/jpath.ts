@@ -80,7 +80,7 @@ export type JPath = {
  *
  * @returns A task converting a feed of values into a feed of path selectors
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing values
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing values
  *
  * @group Factories
  */
@@ -107,8 +107,9 @@ export function jpath(): Task<Value, JPath>; // without a mapper the selector is
  *
  * @returns A task converting a feed of values into a feed of mapped results
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing values, or whatever `mapper`
- *                 reports while mapping a value, including a {@link !SyntaxError SyntaxError} for a malformed path
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing values, or
+ *                              whatever `mapper` reports while mapping a value, including a {@link !SyntaxError
+ *                              SyntaxError} for a malformed path
  *
  * @example
  *

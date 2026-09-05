@@ -71,7 +71,7 @@ const logger = log(import.meta.url);
  *
  * @returns The value held by `document`; `undefined` if it holds no text or cannot be parsed
  *
- * @throws {Error} Whatever reading the body of a response reports
+ * @throws {@link !Error Error} Whatever reading the body of a response reports
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}

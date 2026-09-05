@@ -80,7 +80,7 @@ const logger = log(import.meta.url);
  *
  * @returns The records stated by the data rows of `document`, in document order
  *
- * @throws {Error} While the records are drawn, whatever reading the body of a response reports
+ * @throws {@link !Error Error} While the records are drawn, whatever reading the body of a response reports
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc4180 RFC 4180 Common Format and MIME Type for CSV Files}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}

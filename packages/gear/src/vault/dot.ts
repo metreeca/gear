@@ -36,11 +36,12 @@ import type { Vault } from "./index.js";
  *
  * @returns A {@link Vault} retrieving parameters from `file`
  *
- * @throws {Error} If created outside an execution, as {@link service} defines
+ * @throws {@link !Error Error} If created outside an execution, as {@link service} defines
  *
- * @throws {Error} While retrieving a parameter, if the document defines no value under its key
+ * @throws {@link !Error Error} While retrieving a parameter, if the document defines no value under its key
  *
- * @throws {Error} While retrieving a parameter, whatever reading `file` reports, a missing document included
+ * @throws {@link !Error Error} While retrieving a parameter, whatever reading `file` reports, a missing document
+ *                              included
  *
  * @see {@link https://nodejs.org/api/util.html#utilparseenvcontent Node.js `util.parseEnv()`}
  *
