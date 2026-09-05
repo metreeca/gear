@@ -27,14 +27,18 @@ import { process } from "./untag.core.js";
  * The generated task converts a feed of parsed X/HTML trees into a feed of markdown text, one rendering per tree, so
  * that a consumer reading prose, a language model among them, works on text rather than on markup.
  *
- * A tree holding neither content nor a title is converted to an empty string, so that renderings stay aligned with the
- * trees they were drawn from.
+ * A tree holding neither content nor a title nor a base URL is converted to an empty string, so that renderings stay
+ * aligned with the trees they were drawn from.
  *
- * Where a tree states a title, its rendering opens with a YAML frontmatter block stating it, so that a consumer reads
- * the page the text belongs to alongside the text itself. The title is the first `title` element the tree states
- * outside the framing a reader is not after, so that the caption of an embedded object is not mistaken for it, and it
- * is written as a quoted scalar, so that the punctuation a headline carries doesn't unsettle the block. Where a tree
- * states no title, or one carrying no text, its rendering opens with the content.
+ * Where a tree states a title or a base URL, its rendering opens with a YAML frontmatter block stating them as `title`
+ * and `url`, so that a consumer reads the page the text belongs to alongside the text itself. Each is written as a
+ * quoted scalar, so that the punctuation a headline or a query string carries doesn't unsettle the block, and a field
+ * is omitted where the tree states no value for it, so that nothing is guessed at.
+ *
+ * The title is the first `title` element a tree states outside the framing a reader is not after, so that the caption
+ * of an embedded object is not mistaken for it; one carrying no text counts as none. The base URL is the one recorded
+ * by the root of the tree, that is by the root element the tree is converted from or by the first one a document
+ * holds; a base resolving to no absolute URL, as a relative reference standing on its own does, counts as none.
  *
  * Elements are rendered as follows, names matched as the tree carries them, case insensitively:
  *
@@ -78,8 +82,8 @@ import { process } from "./untag.core.js";
  * >
  * > - **Incremental**: each rendering is emitted as soon as its tree is drawn, so the feed produced runs dry as the
  * >   feed drawn from does and an endless source is read as long as it is consumed.
- * > - **Materialising**: a rendering is assembled in memory as its tree is walked, so peak memory use is about the
- * >   size of the largest tree rather than of the feed.
+ * > - **Streaming**: trees are drawn one at a time and released as soon as their rendering is assembled, so the length
+ * >   of the feed weighs on memory no more than a single tree does.
  * > - **Stateless**: every tree is converted on its own, so the outcome is unaffected by how the feed is split across
  * >   nested feeds or runs.
  *
@@ -89,6 +93,7 @@ import { process } from "./untag.core.js";
  *
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}
+ * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
  *
  * @group Factories
  */

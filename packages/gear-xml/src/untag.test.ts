@@ -468,6 +468,46 @@ describe("process", () => {
 
 		});
 
+		it("states the base URL recorded by the root of the tree", async () => {
+
+			expect(process(tree(`<html xml:base="https://example.com/a/b"><body><p>alpha</p></body></html>`)))
+				.toBe(`---\nurl: "https://example.com/a/b"\n---\n\nalpha`);
+
+		});
+
+		it("states the title and the base URL together", async () => {
+
+			expect(process(tree(
+				`<html xml:base="https://example.com/a/b"><head><title>Alpha</title></head>`
+				+`<body><p>beta</p></body></html>`
+			)))
+				.toBe(`---\ntitle: "Alpha"\nurl: "https://example.com/a/b"\n---\n\nbeta`);
+
+		});
+
+		it("states the base URL recorded by the element a rendering is rooted at", async () => {
+
+			const [ element ] = tree(`<main xml:base="https://example.com/a/b"><p>alpha</p></main>`).children.filter(isTag);
+
+			expect(process(element))
+				.toBe(`---\nurl: "https://example.com/a/b"\n---\n\nalpha`);
+
+		});
+
+		it("leaves out a base stated as a relative reference", async () => {
+
+			expect(process(tree(`<html xml:base="a/b"><body><p>alpha</p></body></html>`)))
+				.toBe("alpha");
+
+		});
+
+		it("renders a tree stating a base but holding no content as the frontmatter alone", async () => {
+
+			expect(process(tree(`<html xml:base="https://example.com/a/b"><body></body></html>`)))
+				.toBe(`---\nurl: "https://example.com/a/b"\n---`);
+
+		});
+
 	});
 
 	describe("unknown elements", () => {

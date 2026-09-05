@@ -20,6 +20,7 @@ import type { AnyNode, Element, NodeWithChildren } from "domhandler";
 import { hasChildren, isComment, isTag, isText } from "domhandler";
 import { DomUtils } from "htmlparser2";
 import { name, normalize, titled } from "./index.core.js";
+import { base } from "./xpath.core.js";
 
 
 /**
@@ -112,28 +113,46 @@ type Buffer = {
  * across an element and the text beside it is not broken apart. A space never opens a line or closes a link label, so
  * that the whitespace a page is laid out with doesn't reach the text.
  *
- * Where the tree states a title, the rendering opens with a YAML frontmatter block stating it, so that a consumer
- * reads the page the text belongs to alongside the text itself. The title is the first `title` element the tree states
- * outside the framing a reader is not after, so that the caption of an embedded object is not mistaken for it, and it
- * is written as a quoted scalar, so that the punctuation a headline carries doesn't unsettle the block. Where the tree
- * states no title, or one carrying no text, the rendering opens with the content.
+ * Where the tree states a title or a base URL, the rendering opens with a YAML frontmatter block stating them as
+ * `title` and `url`, so that a consumer reads the page the text belongs to alongside the text itself. Each is written
+ * as a quoted scalar, so that the punctuation a headline or a query string carries doesn't unsettle the block, and a
+ * field is omitted where the tree states no value for it, so that nothing is guessed at.
+ *
+ * The title is the first `title` element the tree states outside the framing a reader is not after, so that the
+ * caption of an embedded object is not mistaken for it; one carrying no text counts as none. The base URL is the one
+ * recorded by the root of the tree, that is by the root element the tree is converted from or by the first one a
+ * document holds; a base resolving to no absolute URL, as a relative reference standing on its own does, counts as
+ * none.
  *
  * @param node The root of the tree to convert; a document is converted as the sequence of the trees its children root
  *
  * @returns The markdown rendering of the content of the tree rooted at `node`, opened by a frontmatter block stating
- *          its title where it states one and stripped of leading and trailing whitespace; empty if the tree holds
- *          neither content nor a title
+ *          its title and base URL where it states them and stripped of leading and trailing whitespace; empty if the
+ *          tree holds neither content nor either of them
  *
  * @see {@link https://spec.commonmark.org/ CommonMark Spec}
  * @see {@link https://json-ld.org/ JSON-LD}
+ * @see {@link https://www.w3.org/TR/xmlbase/ XML Base}
  */
 export function process(node: AnyNode): Markdown {
 
 	const title = titled(node);
+	const url = located(node);
 	const body = format({ text: "", space: false, level: 0, item: false }, node).text.trim();
 
-	return title === undefined ? body : `---\ntitle: "${ escape(plain(title)) }"\n---\n\n${ body }`.trim();
+	const front = [
+		...(title === undefined ? [] : [ `title: "${ escape(plain(title)) }"` ]),
+		...(url === undefined ? [] : [ `url: "${ escape(url.href) }"` ])
+	];
 
+	return front.length === 0 ? body : `---\n${ front.join("\n") }\n---\n\n${ body }`.trim();
+
+
+	function located(node: AnyNode): undefined | URL { // the base recorded by the root of the tree
+		return isTag(node) ? base(node)
+			: hasChildren(node) ? node.children.filter(isTag).map(base).find(url => url !== undefined)
+				: undefined;
+	}
 
 	function format(buffer: Buffer, node: AnyNode): Buffer {
 		return isTag(node) ? tag(buffer, node)
