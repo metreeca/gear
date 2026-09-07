@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { isArray, isDefined, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
+import { isArray, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
 import { unescape } from "@metreeca/core/strings";
 
 
@@ -67,7 +67,7 @@ export function select(value: Value, path: string): readonly Value[] {
 
 		return (property !== undefined ? fields(selection, unescape(property))
 			: index !== undefined ? items(selection, Number(index))
-				: members(selection)).filter(isDefined);
+				: members(selection)).filter(value => value !== undefined);
 
 	}
 
