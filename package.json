@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "clean": "npm run clean --workspaces && rm -rf dist docs node_modules",
-    "setup": "npm install",
+    "prime": "npm ci",
+    "setup": "npm ci && sh package.sh",
     "build": "npm run build --workspaces && rm -rf docs && npx typedoc",
     "check": "npm run check --workspaces",
     "proof": "npm run build && npx five-server docs --open --watch=false"
