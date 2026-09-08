@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import type { Value } from "@metreeca/core";
 import type { Validator } from "@metreeca/core/trace";
 import type { Task } from "@metreeca/flow";
 import { filter } from "@metreeca/flow/tasks";
@@ -70,9 +69,7 @@ export function validate<V>(validator: Validator<V>): Task<V> {
 
 		} else {
 
-			const id = "?"; // !!! from shape
-
-			logger.warn`invalid <${id}> value (${JSON.stringify(trace)})`;
+			logger.warn`invalid value (${JSON.stringify(trace)})`;
 
 			return false;
 
