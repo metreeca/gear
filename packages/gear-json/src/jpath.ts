@@ -153,8 +153,8 @@ export function jpath(...values: readonly Value[]): JPath;
  */
 export function jpath(...args: readonly Value[] | readonly [mapper: (path: JPath) => unknown]): unknown {
 
-	return isMapper(args) ? map((value: Value) => args[0](selector([value])))
-		: args.length === 0 ? map((value: Value) => selector([value]))
+	return isMapper(args) ? map<Value, unknown>(value => args[0](selector([value])))
+		: args.length === 0 ? map<Value, JPath>(value => selector([value]))
 			: selector(args);
 
 
