@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Job execution runtime and shared services for @metreeca/gear.",
   "keywords": [
     "typescript",
@@ -58,8 +58,8 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/core": "^0.9.22",
-    "@metreeca/tape": "^0.10.0"
+    "@metreeca/core": "^0.10.0",
+    "@metreeca/tape": "^0.10.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
