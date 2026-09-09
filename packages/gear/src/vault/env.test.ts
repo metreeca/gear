@@ -19,7 +19,6 @@ import { createEnvVault } from "./env.js";
 
 
 const Key = "GEAR_TEST_PARAMETER";
-const Prefix = "GEAR_TEST_";
 
 
 afterEach(() => {
@@ -47,12 +46,6 @@ describe("createEnvVault", () => {
 
 	});
 
-	it("rejects an undefined variable", async () => {
-
-		expect(() => createEnvVault()(Key)).toThrow(Error);
-
-	});
-
 	it("retrieves variables defined after construction", async () => {
 
 		const vault = createEnvVault();
@@ -63,20 +56,39 @@ describe("createEnvVault", () => {
 
 	});
 
+	it("rejects an undefined variable", async () => {
 
-	it("looks keys up under the prefix", async () => {
-
-		vi.stubEnv(`${Prefix}PARAMETER`, "secret");
-
-		expect(await createEnvVault(Prefix)("PARAMETER")).toBe("secret");
+		expect(() => createEnvVault()(Key)).toThrow(Error);
 
 	});
 
-	it("rejects a key defined outside the prefix", async () => {
+	describe("prefix", () => {
 
-		vi.stubEnv("PARAMETER", "secret");
+		const Prefix = "GEAR_TEST_";
 
-		expect(() => createEnvVault(Prefix)("PARAMETER")).toThrow(Error);
+		it("looks keys up under the prefix", async () => {
+
+			vi.stubEnv(Key, "secret");
+
+			expect(await createEnvVault(Prefix)("PARAMETER")).toBe("secret");
+
+		});
+
+		it("prepends the prefix without a separator of its own", async () => {
+
+			vi.stubEnv(Key, "secret");
+
+			expect(() => createEnvVault(`${Prefix}_`)("PARAMETER")).toThrow(Error);
+
+		});
+
+		it("rejects a key defined outside the prefix", async () => {
+
+			vi.stubEnv("PARAMETER", "secret");
+
+			expect(() => createEnvVault(Prefix)("PARAMETER")).toThrow(Error);
+
+		});
 
 	});
 

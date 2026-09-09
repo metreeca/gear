@@ -39,7 +39,11 @@ declare function createStore(): Store;
 
 declare function createMemoryStore(): Store;
 
+declare function createAsyncMemoryStore(): Promise<Store>;
+
 declare function createCounter(): Counter;
+
+declare function createAsyncCounter(): Promise<Counter>;
 
 declare function createTally(): number;
 
@@ -56,11 +60,25 @@ describe("bind", () => {
 
 	});
 
+	it("infers the bound type from the service for an asynchronous implementation", async () => {
+
+		expectTypeOf(bind(createStore, createAsyncMemoryStore)).toEqualTypeOf<Binding<Store>>();
+
+	});
+
 	it("rejects an implementation of an unrelated type", async () => {
 
 		// @ts-expect-error — a `Counter` implementation cannot stand in for a `Store` service
 
 		bind(createStore, createCounter);
+
+	});
+
+	it("rejects an asynchronous implementation of an unrelated type", async () => {
+
+		// @ts-expect-error — a `Counter` implementation cannot stand in for a `Store` service
+
+		bind(createStore, createAsyncCounter);
 
 	});
 

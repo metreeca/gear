@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear-xml",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "XML and HTML processing tasks for @metreeca/gear.",
   "keywords": [
     "typescript",
@@ -46,6 +46,15 @@
     "clean": "rm -rf dist docs node_modules",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "check": "npx vitest --typecheck run"
+  },
+  "dependencies": {
+    "@metreeca/core": "^0.10.0",
+    "@metreeca/flow": "^0.10.0",
+    "@metreeca/http": "^0.2.0",
+    "@metreeca/tape": "^0.10.1",
+    "domhandler": "^6.0.1",
+    "htmlparser2": "^12.0.0",
+    "xpathway": "^1.0.4"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

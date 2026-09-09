@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-/**
- * Resource fetcher.
- *
- * @module
- *
- * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
- */
-
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { service } from "@metreeca/gear";
 import { createFetch, type Middleware } from "@metreeca/http";
 import { headers } from "@metreeca/http/headers";
+import { monitor } from "@metreeca/http/monitor";
 import { transport } from "@metreeca/http/transport";
+import { log } from "@metreeca/tape";
 
 
 /**
@@ -35,7 +29,7 @@ import { transport } from "@metreeca/http/transport";
  *
  * States a current desktop Chrome, so that sites serving unattended clients differently, or refusing them altogether,
  * are scraped as a browser would be. The platform token and the `AppleWebKit` and `Safari` tokens are frozen by the
- * reduced user agent Chrome reports, leaving the Chrome version as the only one to be kept in step.
+ * reduced user agent Chrome sends, leaving the Chrome version as the only one to be kept in step.
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-10.1.5 RFC 9110 § 10.1.5 - User-Agent}
  * @see {@link https://developer.chrome.com/docs/privacy-security/user-agent-client-hints User-Agent Client Hints}
@@ -59,18 +53,23 @@ const Accept = "text/html,"
 	+"*/*;q=0.8";
 
 
+const logger = log(import.meta.url);
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Creates a resource exchange task.
+ * Creates a resource fetcher.
  *
- * The generated task reads a feed of requests as a feed of byte chunks, emitting the body of each response as its
- * chunks are received; requests are given as accepted by the standard `fetch()` function, that is as URL strings,
- * {@link https://developer.mozilla.org/docs/Web/API/URL URL} objects or
- * {@link https://developer.mozilla.org/docs/Web/API/Request Request} objects.
+ * The generated task converts a feed of requests into a feed of
+ * {@link https://developer.mozilla.org/docs/Web/API/Response Response} objects, so that a consumer draws on remote and
+ * local resources through the client the execution supplies rather than through one of its own.
  *
- * Chunks are pulled from the response as they are asked for, so resources of any size are handled without holding them
- * in memory and a consumer that stops early cancels the response; a response without a body contributes no chunks.
+ * A request is given as the standard `fetch()` function accepts it, that is as a URL string, a
+ * {@link https://developer.mozilla.org/docs/Web/API/URL URL} object or a
+ * {@link https://developer.mozilla.org/docs/Web/API/Request Request} object. A response is emitted as soon as its head
+ * is received, with the body left unread for the consumer to draw or discard; a response carrying no body is emitted
+ * all the same.
  *
  * Exchanges are routed through the fetch client resolved from the enclosing
  * {@link @metreeca/gear!index.executor execution}, so that the transport is chosen when the task is run rather than
@@ -81,32 +80,50 @@ const Accept = "text/html,"
  * differently, or refusing them altogether, are scraped as a browser would be; a request already stating one of these
  * fields keeps its own value, as do the ones stated by `middlewares`.
  *
- * Content coding is left to the transport, which states the codings it decodes and decodes the body before it reaches
- * the consumer: no runtime API reports what an implementation handles, so a field stated here would be a guess, and a
- * coding guessed wrong would hand over a body still compressed.
+ * Content coding is left to the transport, which states the codings it accepts and decodes the body before it reaches
+ * the consumer, so that no `Accept-Encoding` field is stated here and no body is handed over still compressed.
+ *
+ * Every exchange is reported to the log as it is performed, so that a run leaves a trace of the resources it drew on
+ * and of the ones it was denied; requests are reported as they are stated, before `middlewares` are given a chance to
+ * alter them.
+ *
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: each response is emitted as soon as its head is received, so the feed produced runs dry as the
+ * >   feed drawn from does and an endless source is read as long as it is consumed.
+ * > - **Streaming**: responses are drawn one at a time and handed over with the body unread, none retained, so
+ * >   resources of any size are handled without holding them in memory, as long as each body is read or cancelled
+ * >   before the next response is drawn.
+ * > - **Stateless**: every request is exchanged on its own, so the outcome is unaffected by how the feed is split
+ * >   across nested feeds or runs, whatever state `middlewares` and the resolved client carry across exchanges.
  *
  * > [!WARNING]
- * > Responses reporting an unsuccessful status are skipped, leaving the feed to run to completion; a request stating
- * > a URL that is not absolute or is otherwise malformed brings the feed down instead, unless a middleware screening
- * > it, such as `monitor()` from `@metreeca/http/monitor`, is layered over the client.
+ * >
+ * > A request stating a URL that is not absolute, or malformed in any other way, is dropped before it is sent, as is
+ * > a response stating an unsuccessful status; both are reported to the log, leaving the feed to run to completion.
  *
  * @param middlewares The middlewares to be layered over the resolved fetch client, in request processing order
  *
- * @returns A task converting a feed of requests into a feed of response byte chunks
+ * @returns A task converting a feed of requests into a feed of responses
  *
- * @throws Error While the feed is consumed, if no execution is running, as the fetch client is resolved from the
- *               enclosing one
+ * @throws {@link !Error Error} While the feed is consumed, if no execution is running, as the fetch client is resolved
+ *                              from the enclosing one
  *
- * @throws Error While the feed is consumed, whatever the exchange reports while connecting to a resource or receiving
- *               its response
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing requests, or
+ *                              whatever the exchange reports while connecting to a resource or receiving its response
+ *
+ * @see {@link https://developer.mozilla.org/docs/Web/API/Window/fetch `fetch()`}
+ *
+ * @group Factories
  */
-export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Uint8Array> {
+export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Response> {
 
 	return requests => items((async function* () {
 
 		const fetch = service(createFetch);
 
 		const send = createFetch(
+			monitor(logger),
 			...middlewares,
 			headers({
 
@@ -121,7 +138,7 @@ export function fetch(...middlewares: readonly Middleware[]): Task<string | URL 
 
 			const response = await send(request);
 
-			yield* response.ok ? response.body ?? [] : []; // a response without a body contributes no chunks
+			yield* response.ok ? [response] : []; // unsuccessful responses are reported by the monitor and skipped
 
 		}
 

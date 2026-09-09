@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { Buffer } from "node:buffer";
 import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
+import { process } from "./csv.core.js";
 import { csv } from "./csv.js";
 
 
@@ -29,13 +29,6 @@ type Row = {
 
 }
 
-
-/**
- * Creates a feed carrying the given chunks.
- */
-function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
-	return items((async function* () { yield* values; })());
-}
 
 /**
  * Drains a feed into an array.
@@ -53,154 +46,23 @@ async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 
 }
 
-/**
- * Creates a counting feed carrying a header and data rows, recording the effects the task has on it.
- */
-function rows(count: number) {
 
-	const state = { pulled: 0, closed: false };
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	async function* generate(): AsyncIterable<string> {
-
-		yield "id,label\n";
-
-		try {
-
-			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
-
-				state.pulled = index+1;
-
-				yield `${index},label-${index}\n`;
-
-			}
-
-		} finally {
-
-			state.closed = true;
-
-		}
-
-	}
-
-	return { state, chunks: items(generate()) };
-
-}
-
-
-describe("csv", () => {
+describe("process", () => {
 
 	it("yields a record for each data row", async () => {
 
-		const records = csv<Row>({ header: true })(chunks("id,label\n1,alpha\n2,beta\n"));
-
-		expect(await collect(records)).toEqual([
+		expect(await collect(process<Row>("id,label\n1,alpha\n2,beta\n", { header: true }))).toEqual([
 			{ id: "1", label: "alpha" },
 			{ id: "2", label: "beta" }
 		] satisfies readonly Row[]);
 
 	});
 
-	it("joins records split across chunks", async () => {
+	it("strips a byte order mark", async () => {
 
-		const records = csv<Row>({ header: true })(chunks("id,la", "bel\n1,al", "pha\n2,beta\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha" },
-			{ id: "2", label: "beta" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("decodes multibyte characters split across byte chunks", async () => {
-
-		const bytes = Buffer.from("id,label\n1,città\n", "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-		const records = csv<Row>({ header: true })(chunks(bytes.subarray(0, cut), bytes.subarray(cut)));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "città" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("splits fields on a configured delimiter", async () => {
-
-		const records = csv<Row>({ header: true, delimiter: ";" })(chunks("id;label\n1;alpha\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("unwraps fields with a configured quote", async () => {
-
-		const records = csv<Row>({ header: true, quote: "'" })(chunks("id,label\n1,'alpha,beta'\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha,beta" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("falls back to the default delimiter and quote if configured as empty", async () => {
-
-		const records = csv<Row>({ header: true, delimiter: "", quote: "" })(chunks("id,label\n1,\"alpha,beta\"\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha,beta" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("trims field whitespace on request", async () => {
-
-		const records = csv<Row>({ header: true, trim: true })(chunks(" id , label \n 1 , alpha \n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("skips empty lines on request", async () => {
-
-		const records = csv<Row>({ header: true, skip: true })(chunks("id,label\n1,alpha\n\n2,beta\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1", label: "alpha" },
-			{ id: "2", label: "beta" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("skips records with mismatched field counts", async () => {
-
-		const records = csv<Row>({ header: true })(chunks("id,label\n1\n2,beta,extra\n3,gamma\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "3", label: "gamma" }
-		] satisfies readonly Row[]);
-
-	});
-
-	it("reports short records without their missing fields on request", async () => {
-
-		const records = csv<Row>({ header: true, flex: true })(chunks("id,label\n1\n2,beta\n"));
-
-		expect(await collect(records)).toEqual([
-			{ id: "1" },
-			{ id: "2", label: "beta" }
-		] satisfies readonly Partial<Row>[]);
-
-	});
-
-	it("discards fields beyond the header on request", async () => {
-
-		const records = csv<Row>({ header: true, flex: true })(chunks("id,label\n1,alpha,extra\n"));
-
-		expect(await collect(records)).toEqual([
+		expect(await collect(process<Row>("﻿id,label\n1,alpha\n", { header: true }))).toEqual([
 			{ id: "1", label: "alpha" }
 		] satisfies readonly Row[]);
 
@@ -208,19 +70,308 @@ describe("csv", () => {
 
 	it("skips records that cannot be parsed", async () => {
 
-		const records = csv<Row>({ header: true })(chunks("id,label\n1,\"alpha\"x\n"));
-
-		expect(await collect(records)).toEqual([]);
+		expect(await collect(process<Row>("id,label\n1,\"alpha\"x\n", { header: true }))).toEqual([]);
 
 	});
 
-	it("reports source failures", async () => {
+	describe("responses", () => {
+
+		/**
+		 * Creates a response stating the given content type, none if it is omitted.
+		 *
+		 * The field is stated as empty rather than left out, as the `Response` constructor infers one from the body.
+		 */
+		function response(body: BodyInit | null, type?: string): Response {
+			return new Response(body, { headers: { "Content-Type": type ?? "" } });
+		}
+
+
+		it("reads the response body as the document", async () => {
+
+			const records = process<Row>(response("id,label\n1,alpha\n", "text/csv"), { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("decodes the response body as the charset it states", async () => {
+
+			const bytes = Buffer.from("id,label\n1,città\n", "latin1");
+
+			const records = process<Row>(response(bytes, "text/csv; charset=ISO-8859-1"), { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "città" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("decodes the response body as UTF-8 where it states no charset", async () => {
+
+			const bytes = Buffer.from("id,label\n1,città\n", "utf8");
+
+			expect(await collect(process<Row>(response(bytes), { header: true }))).toEqual([
+				{ id: "1", label: "città" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("strips a byte order mark from the response body", async () => {
+
+			const bytes = Buffer.from("﻿id,label\n1,alpha\n", "utf8");
+
+			const records = process<Row>(response(bytes, "text/csv; charset=utf-8"), { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("reads a response stating a content type other than CSV", async () => {
+
+			// a mis-declared type is reported to the log and read all the same, as CSV is served under many types
+
+			const records = process<Row>(response("id,label\n1,alpha\n", "text/plain"), { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("reads a response stating an unknown charset as UTF-8", async () => {
+
+			// a charset the platform doesn't decode is reported to the log and the body read as UTF-8 all the same
+
+			const bytes = Buffer.from("id,label\n1,città\n", "utf8");
+
+			const records = process<Row>(response(bytes, "text/csv; charset=bogus"), { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "città" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("yields no record for a response without a body", async () => {
+
+			expect(await collect(process<Row>(response(null, "text/csv"), { header: true }))).toEqual([]);
+
+		});
+
+		it("pulls the response body as records are consumed", async () => {
+
+			const count = 10_000;
+			const state = { pulled: 0 };
+
+			const body = new ReadableStream<Uint8Array>({
+
+				start(controller) {
+					controller.enqueue(new TextEncoder().encode("id,label\n"));
+				},
+
+				pull(controller) {
+
+					state.pulled += 1; // recording a pull has no functional equivalent
+
+					if ( state.pulled > count ) {
+
+						controller.close();
+
+					} else {
+
+						controller.enqueue(new TextEncoder().encode(`${state.pulled},label-${state.pulled}\n`));
+
+					}
+
+				}
+
+			});
+
+			const records = process(response(body, "text/csv"), { header: true })[Symbol.asyncIterator]();
+
+			await records.next();
+
+			expect(state.pulled).toBeLessThan(count/2);
+
+			await records.return?.();
+
+		});
+
+	});
+
+	describe("header", () => {
+
+		it("keys fields by positional index by default", async () => {
+
+			expect(await collect(process("1,alpha\n2,beta\n"))).toEqual([
+				["1", "alpha"],
+				["2", "beta"]
+			]);
+
+		});
+
+		it("keys fields by column label on request", async () => {
+
+			expect(await collect(process<Row>("id,label\n1,alpha\n", { header: true }))).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+	describe("skip", () => {
+
+		it("skips empty lines on request", async () => {
+
+			const records = process<Row>("id,label\n1,alpha\n\n2,beta\n", { header: true, skip: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" },
+				{ id: "2", label: "beta" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+	describe("trim", () => {
+
+		it("keeps field whitespace by default", async () => {
+
+			expect(await collect(process<Row>("id,label\n 1 , alpha \n", { header: true }))).toEqual([
+				{ id: " 1 ", label: " alpha " }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("strips field whitespace on request", async () => {
+
+			const records = process<Row>(" id , label \n 1 , alpha \n", { header: true, trim: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+	describe("flex", () => {
+
+		it("skips records with mismatched field counts by default", async () => {
+
+			const records = process<Row>("id,label\n1\n2,beta,extra\n3,gamma\n", { header: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "3", label: "gamma" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("emits short records without their missing fields on request", async () => {
+
+			const records = process<Row>("id,label\n1\n2,beta\n", { header: true, flex: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1" },
+				{ id: "2", label: "beta" }
+			] satisfies readonly Partial<Row>[]);
+
+		});
+
+		it("discards fields beyond the header on request", async () => {
+
+			const records = process<Row>("id,label\n1,alpha,extra\n", { header: true, flex: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+	describe("quote", () => {
+
+		it("unwraps fields with the stated quote", async () => {
+
+			const records = process<Row>("id,label\n1,'alpha,beta'\n", { header: true, quote: "'" });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha,beta" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("falls back to the default quote if stated as empty", async () => {
+
+			const records = process<Row>("id,label\n1,\"alpha,beta\"\n", { header: true, quote: "" });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha,beta" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+	describe("delimiter", () => {
+
+		it("splits fields on the stated delimiter", async () => {
+
+			const records = process<Row>("id;label\n1;alpha\n", { header: true, delimiter: ";" });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("falls back to the default delimiter if stated as empty", async () => {
+
+			const records = process<Row>("id,label\n1,alpha\n", { header: true, delimiter: "" });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+	});
+
+});
+
+describe("csv", () => {
+
+	it("reads each document on its own, header included", async () => {
+
+		const documents: readonly string[] = [ "id,label\n1,alpha\n", "label,id\nbeta,2\n" ];
+
+		expect(await collect(csv<Row>({ header: true })(items(documents)))).toEqual([
+			{ id: "1", label: "alpha" },
+			{ id: "2", label: "beta" }
+		] satisfies readonly Row[]);
+
+	});
+
+	it("yields no record for an empty feed", async () => {
+
+		expect(await collect(csv<Row>({ header: true })(items([])))).toEqual([]);
+
+	});
+
+	it("propagates a source failure", async () => {
 
 		const failing = items((async function* () {
 
-			yield "id,label\n";
+			yield "id,label\n1,alpha\n";
 
-			throw new Error("broken source"); // told apart from failures reported by the task by its message
+			throw new Error("broken source"); // told apart from failures raised by the task by its message
 
 		})());
 
@@ -228,31 +379,68 @@ describe("csv", () => {
 
 	});
 
-	it("pulls from the source as records are consumed", async () => {
+	describe("streaming", () => {
 
-		const count = 10_000;
-		const { state, chunks: source } = rows(count);
+		/**
+		 * Creates a feed carrying `count` documents, recording the effects the task has on it.
+		 */
+		function feed(count: number) {
 
-		const records = csv({ header: true })(source)[Symbol.asyncIterator]();
+			const state = { pulled: 0, closed: false };
 
-		await records.next();
+			async function* generate(): AsyncIterable<string> {
 
-		expect(state.pulled).toBeLessThan(count/2);
+				try {
 
-	});
+					for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
 
-	it("releases the source when the consumer stops early", async () => {
+						state.pulled = index+1;
 
-		const { state, chunks: source } = rows(10_000);
+						yield `id,label\n${index},label-${index}\n`;
 
-		const records = csv({ header: true })(source)[Symbol.asyncIterator]();
+					}
 
-		await records.next();
-		await records.return?.(); // as a downstream take() would, once satisfied
+				} finally {
 
-		await delay(10); // teardown propagates upstream asynchronously
+					state.closed = true;
 
-		expect(state.closed).toBeTruthy();
+				}
+
+			}
+
+			return { state, documents: items(generate()) };
+
+		}
+
+
+		it("draws one document at a time", async () => {
+
+			const { state, documents: source } = feed(10_000);
+
+			const records = csv({ header: true })(source)[Symbol.asyncIterator]();
+
+			await records.next();
+
+			expect(state.pulled).toBe(1);
+
+			await records.return?.();
+
+		});
+
+		it("releases the source when the consumer stops early", async () => {
+
+			const { state, documents: source } = feed(10_000);
+
+			const records = csv({ header: true })(source)[Symbol.asyncIterator]();
+
+			await records.next();
+			await records.return?.(); // as a downstream take() would, once satisfied
+
+			await delay(10); // teardown propagates upstream asynchronously
+
+			expect(state.closed).toBe(true);
+
+		});
 
 	});
 

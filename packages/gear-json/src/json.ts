@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-/**
- * JSON parser.
- *
- * @module
- */
-
 import type { Object, Value } from "@metreeca/core";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
-import { log, report } from "@metreeca/tape";
-import { text as decode } from "node:stream/consumers"; // aliased, as `parse()` names its own text
-
-
-const logger = log(import.meta.url);
+import { process } from "./json.core.js";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,50 +25,61 @@ const logger = log(import.meta.url);
 /**
  * Creates a JSON parser.
  *
- * The generated task reads a feed of JSON text or byte chunks as a feed of values, taking the whole source as a
- * single document and reporting it as a single value.
+ * The generated task converts a feed of JSON documents into a feed of values, one value per document, so that a
+ * consumer works on structured data rather than on text.
  *
- * Chunks are pulled from the source in full before parsing, as JSON documents cannot be parsed incrementally: the
- * whole text is held in memory and nothing is reported until the source is exhausted; parsing requires the text as a
- * single contiguous string, so peak memory use is about twice the size of the document.
+ * A document is given either as text or as a response carrying it as its body, and is parsed on its own. A document
+ * holding no text, or only whitespace, contributes no value, as does a response carrying no body.
  *
- * A source reporting no text, or only whitespace, is read as an empty feed.
+ * Response bodies are decoded as UTF-8, the only encoding JSON is exchanged under, and bytes that are not valid UTF-8
+ * are read as replacement characters.
+ *
+ * A response stating a content type that is not a JSON one, `application/json` or a `+json` format such as
+ * `application/ld+json`, or a charset other than UTF-8, is reported to the log and read all the same, so that a
+ * mis-declared source is diagnosed without being shut out.
+ *
+ * > [!NOTE]
+ * >
+ * > - **Incremental**: each value is emitted as soon as its document is drawn, so the feed produced runs dry as the
+ * >   feed drawn from does and an endless source is read as long as it is consumed.
+ * > - **Materialising**: a document is held in memory while it is parsed, as parsing requires it as a single
+ * >   contiguous string, so peak memory use is about twice the size of the largest document rather than of the feed.
+ * > - **Stateless**: every document is parsed on its own, so the outcome is unaffected by how the feed is split
+ * >   across nested feeds or runs.
  *
  * > [!WARNING]
- * > A document that cannot be parsed is skipped and reported to the log, leaving the feed to complete empty.
+ * >
+ * > A document that cannot be parsed is skipped and reported to the log, leaving the feed to run to completion.
  *
- * @typeParam V The type of the reported value; the parsed document is reported as is, without being validated
+ * @typeParam V The type of the value produced; the parsed document is emitted as is, without being validated
  *              against it; defaults to a JSON {@link Object}
  *
- * @returns A task converting a feed of JSON text or byte chunks into a feed of values
+ * @returns A task converting a feed of JSON documents, given as text or as responses, into a feed of values
  *
- * @throws Error While the feed is consumed, whatever the source reports while producing chunks
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing documents, or
+ *                              whatever reading the body of a response reports
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
+ * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ *
+ * @group Factories
  */
-export function json<V extends Value = Object>(): Task<string | Uint8Array, V> {
+export function json<V extends Value = Object>(): Task<string | Response, V> {
 
-	return chunks => items((async function* () {
+	return documents => items((async function* () {
 
-		yield* parse(await decode(chunks));
+		for await (const document of documents) {
 
-	})());
+			const value = await process<V>(document);
 
+			if ( value !== undefined ) { // a document holding no parsable value contributes no value
 
-	function parse(text: string): readonly V[] {
+				yield value;
 
-		try {
-
-			return text.trim() ? [JSON.parse(text)] : [];
-
-		} catch ( error ) {
-
-			logger.warn`malformed JSON document (${report(error)})`;
-
-			return [];
+			}
 
 		}
 
-	}
+	})());
 
 }
