@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear-rdf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "RDF processing tasks for @metreeca/gear.",
   "keywords": [
     "typescript",
