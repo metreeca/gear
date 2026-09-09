@@ -18,6 +18,7 @@ import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import type { Executor } from "../index.js";
 import { bind, executor, service } from "../index.js";
 import { getPath } from "../space/index.js";
 import { createFileCache } from "./file.js";
@@ -36,13 +37,22 @@ afterEach(() => {
 
 
 /**
- * Executes a task against a dedicated working space path.
+ * Creates an executor anchored to a dedicated working space path.
  */
-async function within<T>(task: () => Promise<T>): Promise<T> {
+async function space(): Promise<Executor> {
 
 	const home = await mkdtemp(join(base, "case-"));
 
-	return executor(bind(getPath, () => home))(task);
+	return executor(bind(getPath, () => home));
+
+}
+
+/**
+ * Executes a job against a dedicated working space path.
+ */
+async function within<T>(job: () => Promise<T>): Promise<T> {
+
+	return (await space())(job);
 
 }
 
@@ -88,13 +98,19 @@ function elapse(millis: number): void {
 
 describe("createFileCache", () => {
 
-	it("reports an immutable bucket", async () => {
+	it("returns an immutable bucket", async () => {
 
 		await within(async () => {
 
-			expect(Object.isFrozen(createFileCache())).toBeTruthy();
+			expect(Object.isFrozen(createFileCache())).toBe(true);
 
 		});
+
+	});
+
+	it("rejects creation outside an execution", async () => {
+
+		expect(() => createFileCache()).toThrow();
 
 	});
 
@@ -112,7 +128,7 @@ describe("createFileCache", () => {
 
 	});
 
-	it("reports an unknown key as absent", async () => {
+	it("yields no value for an unknown key", async () => {
 
 		await within(async () => {
 
@@ -189,10 +205,38 @@ describe("createFileCache", () => {
 
 	});
 
+	it("shares content with a cache in a later execution over the same space", async () => {
+
+		const execute = await space();
+
+		await execute(async () => {
+
+			await createFileCache().put("key", stream("value"));
+
+		});
+
+		expect(await execute(async () => text(await createFileCache().get("key")))).toBe("value");
+
+	});
+
 
 	describe("path", () => {
 
 		it("holds values under the stated path", async () => {
+
+			await within(async () => {
+
+				const home = service(getPath);
+
+				await createFileCache({ path: "custom" }).put("key", stream("value"));
+
+				expect(await readdir(join(home, "custom"))).toHaveLength(1);
+
+			});
+
+		});
+
+		it("holds values apart from a cache over another path", async () => {
 
 			await within(async () => {
 
@@ -204,13 +248,29 @@ describe("createFileCache", () => {
 
 		});
 
-		it("reports a path taken by a plain file", async () => {
+		it("rejects a path taken by a plain file while storing a value", async () => {
 
 			await within(async () => {
 
-				await writeFile(join(service(getPath), "cache"), "");
+				const home = service(getPath);
+
+				await writeFile(join(home, "cache"), "");
 
 				await expect(createFileCache().put("key", stream("value"))).rejects.toThrow(Error);
+
+			});
+
+		});
+
+		it("rejects a path taken by a plain file while retrieving a value", async () => {
+
+			await within(async () => {
+
+				const home = service(getPath);
+
+				await writeFile(join(home, "cache"), "");
+
+				await expect(createFileCache().get("key")).rejects.toThrow(Error);
 
 			});
 
@@ -237,7 +297,23 @@ describe("createFileCache", () => {
 
 		});
 
-		it("reports a value left unused for the time to live as absent", async () => {
+		it("retains a value indefinitely under a non-positive time to live", async () => {
+
+			await within(async () => {
+
+				const cache = createFileCache({ ttl: 0 });
+
+				await cache.put("key", stream("value"));
+
+				elapse(1_000_000);
+
+				expect(await text(await cache.get("key"))).toBe("value");
+
+			});
+
+		});
+
+		it("drops a value left unused for the time to live", async () => {
 
 			await within(async () => {
 
@@ -291,6 +367,7 @@ describe("createFileCache", () => {
 
 			await within(async () => {
 
+				const home = service(getPath);
 				const cache = createFileCache({ ttl: 1_000 });
 
 				await cache.put("key", stream("value"));
@@ -298,7 +375,7 @@ describe("createFileCache", () => {
 				elapse(1_000);
 
 				expect(await cache.get("other")).toBeUndefined();
-				expect(await readdir(join(service(getPath), "cache"))).toEqual([]);
+				expect(await readdir(join(home, "cache"))).toEqual([]);
 
 			});
 
@@ -318,6 +395,21 @@ describe("createFileCache", () => {
 				await cache.put("one", stream("1111"));
 				await cache.put("two", stream("2222"));
 				await cache.put("three", stream("3333"));
+
+				expect(await text(await cache.get("one"))).toBe("1111");
+
+			});
+
+		});
+
+		it("retains content without bound under a non-positive budget", async () => {
+
+			await within(async () => {
+
+				const cache = createFileCache({ bytes: 0 });
+
+				await cache.put("one", stream("1111"));
+				await cache.put("two", stream("2222"));
 
 				expect(await text(await cache.get("one"))).toBe("1111");
 

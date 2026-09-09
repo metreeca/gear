@@ -16,6 +16,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { isAsyncDisposable, isDisposable } from "./index.core.js";
+import type { Service } from "./index.js";
 import { bind, executor, service } from "./index.js";
 
 
@@ -26,13 +27,6 @@ interface Store {
 }
 
 
-class ExecutableError extends Error {}
-
-class ServiceError extends Error {}
-
-class DisposeError extends Error {}
-
-
 function createStore(): Store {
 	return { label: "default" };
 }
@@ -41,28 +35,45 @@ function createMemoryStore(): Store {
 	return { label: "memory" };
 }
 
-function createTestStore(): Store {
-	return { label: "test" };
+
+/**
+ * Creates a service constructing an asynchronously disposable instance releasing through `dispose`.
+ */
+function disposable(dispose: AsyncDisposable[typeof Symbol.asyncDispose]): Service<AsyncDisposable> {
+	return () => ({ [Symbol.asyncDispose]: dispose });
 }
+
+
+function noop(): void {}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 describe("executor", () => {
 
-	it("resolves to the value returned by the task", async () => {
+	class ExecutableError extends Error {}
+
+	class DisposeError extends Error {}
+
+
+	function createTestStore(): Store {
+		return { label: "test" };
+	}
+
+
+	it("resolves to the value returned by the job", async () => {
 
 		await expect(executor()(() => "done")).resolves.toBe("done");
 
 	});
 
-	it("resolves to the value awaited from an asynchronous task", async () => {
+	it("resolves to the value awaited from an asynchronous job", async () => {
 
 		await expect(executor()(async () => "done")).resolves.toBe("done");
 
 	});
 
-	it("propagates the error thrown by the task", async () => {
+	it("propagates the error thrown by the job", async () => {
 
 		await expect(executor()(() => { throw new ExecutableError(); })).rejects.toThrow(ExecutableError);
 
@@ -112,9 +123,8 @@ describe("executor", () => {
 	it("disposes the services it constructed", async () => {
 
 		const dispose = vi.fn();
-		const create = (): AsyncDisposable => ({ [Symbol.asyncDispose]: dispose });
 
-		await executor()(() => { service(create); });
+		await executor()(() => { service(disposable(dispose)); });
 
 		expect(dispose).toHaveBeenCalledTimes(1);
 
@@ -148,13 +158,19 @@ describe("executor", () => {
 
 	});
 
+	it("leaves alone a service implementing no disposal protocol", async () => {
+
+		await expect(executor()(() => service(createStore).label)).resolves.toBe("default");
+
+	});
+
 	it("disposes services in reverse construction order", async () => {
 
 		const disposeFirst = vi.fn();
 		const disposeSecond = vi.fn();
 
-		const createFirst = (): AsyncDisposable => ({ [Symbol.asyncDispose]: disposeFirst });
-		const createSecond = (): AsyncDisposable => ({ [Symbol.asyncDispose]: disposeSecond });
+		const createFirst = disposable(disposeFirst);
+		const createSecond = disposable(disposeSecond);
 
 		await executor()(() => {
 
@@ -167,10 +183,10 @@ describe("executor", () => {
 
 	});
 
-	it("disposes the services constructed by a failing task", async () => {
+	it("disposes the services constructed by a failing job", async () => {
 
 		const dispose = vi.fn();
-		const create = (): AsyncDisposable => ({ [Symbol.asyncDispose]: dispose });
+		const create = disposable(dispose);
 
 		await expect(executor()(() => {
 
@@ -184,21 +200,35 @@ describe("executor", () => {
 
 	});
 
+	it("settles only after asynchronous disposal has completed", async () => {
+
+		const released = vi.fn();
+
+		const create = disposable(async () => {
+
+			await Promise.resolve();
+
+			released();
+
+		});
+
+		await executor()(() => { service(create); });
+
+		expect(released).toHaveBeenCalledTimes(1);
+
+	});
+
 	it("propagates a disposal error", async () => {
 
-		const create = (): AsyncDisposable => ({
-			[Symbol.asyncDispose]: () => { throw new DisposeError(); }
-		});
+		const create = disposable(() => { throw new DisposeError(); });
 
 		await expect(executor()(() => { service(create); })).rejects.toThrow(DisposeError);
 
 	});
 
-	it("composes task and disposal errors", async () => {
+	it("composes job and disposal errors", async () => {
 
-		const create = (): AsyncDisposable => ({
-			[Symbol.asyncDispose]: () => { throw new DisposeError(); }
-		});
+		const create = disposable(() => { throw new DisposeError(); });
 
 		const error = await executor()(() => {
 
@@ -216,13 +246,8 @@ describe("executor", () => {
 
 	it("composes multiple disposal errors", async () => {
 
-		const createFirst = (): AsyncDisposable => ({
-			[Symbol.asyncDispose]: () => { throw new DisposeError("first"); }
-		});
-
-		const createSecond = (): AsyncDisposable => ({
-			[Symbol.asyncDispose]: () => { throw new DisposeError("second"); }
-		});
+		const createFirst = disposable(() => { throw new DisposeError("first"); });
+		const createSecond = disposable(() => { throw new DisposeError("second"); });
 
 		const error = await executor()(() => {
 
@@ -236,6 +261,200 @@ describe("executor", () => {
 
 	});
 
+
+	describe("preparation", () => {
+
+		class BindingError extends Error {}
+
+
+		interface Index {
+
+			readonly store: Store;
+
+		}
+
+
+		function createIndex(): Index {
+			return { store: service(createStore) };
+		}
+
+		/**
+		 * Constructs an index, standing for a reusable implementation resolving its own dependencies, such as
+		 * `createDotVault`, called by the factory a binding pairs with a service rather than being that factory.
+		 */
+		function buildIndex(): Index {
+			return { store: service(createStore) };
+		}
+
+		/**
+		 * Creates an implementation constructing an asynchronously disposable store releasing through `dispose`.
+		 */
+		function releasable(dispose: AsyncDisposable[typeof Symbol.asyncDispose]): () => Store & AsyncDisposable {
+			return () => ({ label: "memory", [Symbol.asyncDispose]: dispose });
+		}
+
+
+		it("constructs bound implementations before the job runs", async () => {
+
+			const create = vi.fn(createMemoryStore);
+
+			await executor(bind(createStore, create))(noop);
+
+			expect(create).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("constructs bound implementations in binding order", async () => {
+
+			const createFirst = vi.fn(createMemoryStore);
+			const createSecond = vi.fn(createTestStore);
+
+			await executor(
+				bind(createStore, createFirst),
+				bind(createTestStore, createSecond)
+			)(noop);
+
+			expect(createFirst.mock.invocationCallOrder[0]).toBeLessThan(createSecond.mock.invocationCallOrder[0]);
+
+		});
+
+		it("awaits an asynchronous implementation", async () => {
+
+			await executor(bind(createStore, async () => createMemoryStore()))(() => {
+
+				expect(service(createStore).label).toBe("memory");
+
+			});
+
+		});
+
+		it("resolves other services from an asynchronous implementation", async () => {
+
+			await executor(bind(createIndex, async () => ({ store: service(createStore) })))(() => {
+
+				expect(service(createIndex).store).toBe(service(createStore));
+
+			});
+
+		});
+
+		it("resolves other services after an asynchronous implementation has awaited", async () => {
+
+			await executor(bind(createIndex, async () => {
+
+				await Promise.resolve();
+
+				return { store: service(createStore) };
+
+			}))(() => {
+
+				expect(service(createIndex).store).toBe(service(createStore));
+
+			});
+
+		});
+
+		it("constructs again an implementation requiring an asynchronous one bound after it", async () => {
+
+			const create = vi.fn(async (): Promise<Index> => ({ store: service(createStore) }));
+
+			await executor(
+				bind(createIndex, create),
+				bind(createStore, async () => createMemoryStore())
+			)(() => {
+
+				expect(service(createIndex).store.label).toBe("memory");
+
+			});
+
+			expect(create).toHaveBeenCalledTimes(2);
+
+		});
+
+		it("constructs again an implementation delegating to one requiring a service bound after it", async () => {
+
+			const create = vi.fn(() => buildIndex());
+
+			await executor(
+				bind(createIndex, create),
+				bind(createStore, async () => createMemoryStore())
+			)(() => {
+
+				expect(service(createIndex).store.label).toBe("memory");
+
+			});
+
+			expect(create).toHaveBeenCalledTimes(2);
+
+		});
+
+		it("constructs an asynchronous implementation once for all the services requiring it", async () => {
+
+			const create = vi.fn(async () => createMemoryStore());
+
+			await executor(
+				bind(createIndex, async () => ({ store: service(createStore) })),
+				bind(createStore, create)
+			)(noop);
+
+			expect(create).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("disposes the instance of a prepared implementation", async () => {
+
+			const dispose = vi.fn();
+
+			await executor(bind(createStore, releasable(dispose)))(noop);
+
+			expect(dispose).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("rejects without running the job when a binding fails to prepare", async () => {
+
+			const job = vi.fn();
+
+			await expect(executor(bind(createStore, async (): Promise<Store> => {
+
+				throw new BindingError();
+
+			}))(job)).rejects.toThrow(BindingError);
+
+			expect(job).not.toHaveBeenCalled();
+
+		});
+
+		it("disposes the instances constructed before a failed preparation", async () => {
+
+			const dispose = vi.fn();
+
+			await expect(executor(
+
+				bind(createStore, releasable(dispose)),
+
+				bind(createTestStore, async (): Promise<Store> => { throw new BindingError(); })
+
+			)(noop)).rejects.toThrow(BindingError);
+
+			expect(dispose).toHaveBeenCalledTimes(1);
+
+		});
+
+		it("rejects mutually dependent asynchronous implementations", async () => {
+
+			await expect(executor(
+
+				bind(createIndex, async () => ({ store: service(createStore) })),
+
+				bind(createStore, async () => service(createIndex).store)
+
+			)(noop)).rejects.toThrow();
+
+		});
+
+	});
+
 });
 
 describe("bind", () => {
@@ -246,9 +465,18 @@ describe("bind", () => {
 
 	});
 
+	it("returns an immutable binding", async () => {
+
+		expect(Object.isFrozen(bind(createStore, createMemoryStore))).toBe(true);
+
+	});
+
 });
 
 describe("service", () => {
+
+	class ServiceError extends Error {}
+
 
 	it("constructs an unbound service from its own default", async () => {
 
@@ -280,6 +508,21 @@ describe("service", () => {
 
 	});
 
+	it("constructs a service at most once per execution", async () => {
+
+		const create = vi.fn(createStore);
+
+		await executor()(() => {
+
+			service(create);
+			service(create);
+
+		});
+
+		expect(create).toHaveBeenCalledTimes(1);
+
+	});
+
 	it("resolves a service constructing a primitive", async () => {
 
 		const createRoot = (): string => "/tmp";
@@ -300,21 +543,6 @@ describe("service", () => {
 
 			expect(service(create)).toBeNull();
 			expect(service(create)).toBeNull();
-
-		});
-
-		expect(create).toHaveBeenCalledTimes(1);
-
-	});
-
-	it("constructs a service at most once per execution", async () => {
-
-		const create = vi.fn(createStore);
-
-		await executor()(() => {
-
-			service(create);
-			service(create);
 
 		});
 
@@ -353,6 +581,21 @@ describe("service", () => {
 			expect(service(createStore)).not.toBe(service(createMemoryStore));
 
 		});
+
+	});
+
+	it("constructs again after a failed construction", async () => {
+
+		const create = vi.fn((): Store => { throw new ServiceError(); });
+
+		await executor()(() => {
+
+			expect(() => service(create)).toThrow(ServiceError);
+			expect(() => service(create)).toThrow(ServiceError);
+
+		});
+
+		expect(create).toHaveBeenCalledTimes(2);
 
 	});
 
@@ -396,15 +639,13 @@ describe("service", () => {
 
 	it("rejects a lookup from within a disposer", async () => {
 
-		const create = (): AsyncDisposable => ({
-			[Symbol.asyncDispose]: async () => { service(createStore); }
-		});
+		const create = disposable(async () => { service(createStore); });
 
 		await expect(executor()(() => { service(create); })).rejects.toThrow();
 
 	});
 
-	it("rejects a lookup from work outliving the task", async () => {
+	it("rejects a lookup from work outliving the job", async () => {
 
 		const escaped = await executor()(() => () => service(createStore));
 
@@ -412,120 +653,111 @@ describe("service", () => {
 
 	});
 
-	it("constructs again after a failed construction", async () => {
+});
 
-		const create = vi.fn((): Store => { throw new ServiceError(); });
+describe("isDisposable", () => {
 
-		await executor()(() => {
+	it("accepts an object exposing a disposal method", async () => {
 
-			expect(() => service(create)).toThrow(ServiceError);
-			expect(() => service(create)).toThrow(ServiceError);
+		expect(isDisposable({ [Symbol.dispose]: noop })).toBe(true);
 
-		});
+	});
 
-		expect(create).toHaveBeenCalledTimes(2);
+	it("accepts an object inheriting a disposal method", async () => {
+
+		expect(isDisposable(Object.create({ [Symbol.dispose]: noop }))).toBe(true);
+
+	});
+
+	it("accepts a function exposing a disposal method", async () => {
+
+		expect(isDisposable(Object.assign(noop, { [Symbol.dispose]: noop }))).toBe(true);
+
+	});
+
+	it("accepts an object exposing both disposal protocols", async () => {
+
+		expect(isDisposable({ [Symbol.dispose]: noop, [Symbol.asyncDispose]: noop })).toBe(true);
+
+	});
+
+	it("rejects an object exposing asynchronous disposal only", async () => {
+
+		expect(isDisposable({ [Symbol.asyncDispose]: noop })).toBe(false);
+
+	});
+
+	it("rejects an object exposing a non-callable disposal property", async () => {
+
+		expect(isDisposable({ [Symbol.dispose]: "dispose" })).toBe(false);
+
+	});
+
+	it("rejects an object without a disposal method", async () => {
+
+		expect(isDisposable({})).toBe(false);
+
+	});
+
+	it("rejects a value that is not an object", async () => {
+
+		expect(isDisposable(undefined)).toBe(false);
+		expect(isDisposable(null)).toBe(false);
+		expect(isDisposable("dispose")).toBe(false);
 
 	});
 
 });
 
-describe("disposables", () => {
+describe("isAsyncDisposable", () => {
 
-	function noop(): void {}
+	it("accepts an object exposing a disposal method", async () => {
 
-	describe("isDisposable", () => {
-
-		it("accepts an object exposing a disposal method", async () => {
-
-			expect(isDisposable({ [Symbol.dispose]: noop })).toBe(true);
-
-		});
-
-		it("accepts a function exposing a disposal method", async () => {
-
-			expect(isDisposable(Object.assign(noop, { [Symbol.dispose]: noop }))).toBe(true);
-
-		});
-
-		it("accepts an object exposing both disposal protocols", async () => {
-
-			expect(isDisposable({ [Symbol.dispose]: noop, [Symbol.asyncDispose]: noop })).toBe(true);
-
-		});
-
-		it("rejects an object exposing asynchronous disposal only", async () => {
-
-			expect(isDisposable({ [Symbol.asyncDispose]: noop })).toBe(false);
-
-		});
-
-		it("rejects an object exposing a non-callable disposal property", async () => {
-
-			expect(isDisposable({ [Symbol.dispose]: "dispose" })).toBe(false);
-
-		});
-
-		it("rejects an object without a disposal method", async () => {
-
-			expect(isDisposable({})).toBe(false);
-
-		});
-
-		it("rejects a value that is not an object", async () => {
-
-			expect(isDisposable(undefined)).toBe(false);
-			expect(isDisposable(null)).toBe(false);
-			expect(isDisposable("dispose")).toBe(false);
-
-		});
+		expect(isAsyncDisposable({ [Symbol.asyncDispose]: noop })).toBe(true);
 
 	});
 
-	describe("isAsyncDisposable", () => {
+	it("accepts an object inheriting a disposal method", async () => {
 
-		it("accepts an object exposing a disposal method", async () => {
+		expect(isAsyncDisposable(Object.create({ [Symbol.asyncDispose]: noop }))).toBe(true);
 
-			expect(isAsyncDisposable({ [Symbol.asyncDispose]: noop })).toBe(true);
+	});
 
-		});
+	it("accepts a function exposing a disposal method", async () => {
 
-		it("accepts a function exposing a disposal method", async () => {
+		expect(isAsyncDisposable(Object.assign(noop, { [Symbol.asyncDispose]: noop }))).toBe(true);
 
-			expect(isAsyncDisposable(Object.assign(noop, { [Symbol.asyncDispose]: noop }))).toBe(true);
+	});
 
-		});
+	it("accepts an object exposing both disposal protocols", async () => {
 
-		it("accepts an object exposing both disposal protocols", async () => {
+		expect(isAsyncDisposable({ [Symbol.dispose]: noop, [Symbol.asyncDispose]: noop })).toBe(true);
 
-			expect(isAsyncDisposable({ [Symbol.dispose]: noop, [Symbol.asyncDispose]: noop })).toBe(true);
+	});
 
-		});
+	it("rejects an object exposing synchronous disposal only", async () => {
 
-		it("rejects an object exposing synchronous disposal only", async () => {
+		expect(isAsyncDisposable({ [Symbol.dispose]: noop })).toBe(false);
 
-			expect(isAsyncDisposable({ [Symbol.dispose]: noop })).toBe(false);
+	});
 
-		});
+	it("rejects an object exposing a non-callable disposal property", async () => {
 
-		it("rejects an object exposing a non-callable disposal property", async () => {
+		expect(isAsyncDisposable({ [Symbol.asyncDispose]: "dispose" })).toBe(false);
 
-			expect(isAsyncDisposable({ [Symbol.asyncDispose]: "dispose" })).toBe(false);
+	});
 
-		});
+	it("rejects an object without a disposal method", async () => {
 
-		it("rejects an object without a disposal method", async () => {
+		expect(isAsyncDisposable({})).toBe(false);
 
-			expect(isAsyncDisposable({})).toBe(false);
+	});
 
-		});
+	it("rejects a value that is not an object", async () => {
 
-		it("rejects a value that is not an object", async () => {
-
-			expect(isAsyncDisposable(undefined)).toBe(false);
-			expect(isAsyncDisposable(null)).toBe(false);
-			expect(isAsyncDisposable("dispose")).toBe(false);
-
-		});
+		expect(isAsyncDisposable(undefined)).toBe(false);
+		expect(isAsyncDisposable(null)).toBe(false);
+		expect(isAsyncDisposable("dispose")).toBe(false);
 
 	});
 

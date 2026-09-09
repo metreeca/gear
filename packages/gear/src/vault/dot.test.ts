@@ -32,15 +32,15 @@ afterAll(async () => {
 
 
 /**
- * Executes a task against a base path holding a dotenv document.
+ * Executes a job against a base path holding a dotenv document.
  */
-async function within<T>(file: string, content: string, task: () => Promise<T>): Promise<T> {
+async function within<T>(file: string, content: string, job: () => Promise<T>): Promise<T> {
 
 	const home = await mkdtemp(join(base, "case-"));
 
 	await writeFile(join(home, file), content);
 
-	return executor(bind(getPath, () => home))(task);
+	return executor(bind(getPath, () => home))(job);
 
 }
 
@@ -49,11 +49,27 @@ async function within<T>(file: string, content: string, task: () => Promise<T>):
 
 describe("createDotVault", () => {
 
+	it("rejects creation outside an execution", async () => {
+
+		expect(() => createDotVault()).toThrow(Error);
+
+	});
+
 	it("retrieves the value of a defined parameter", async () => {
 
 		await within(".env", "PARAMETER=secret\n", async () => {
 
 			expect(await createDotVault()("PARAMETER")).toBe("secret");
+
+		});
+
+	});
+
+	it("retrieves the empty value of a parameter defined as empty", async () => {
+
+		await within(".env", "PARAMETER=\n", async () => {
+
+			expect(await createDotVault()("PARAMETER")).toBe("");
 
 		});
 
@@ -69,7 +85,7 @@ describe("createDotVault", () => {
 
 	});
 
-	it("reports a missing document", async () => {
+	it("rejects a missing document", async () => {
 
 		await within("other.env", "PARAMETER=secret\n", async () => {
 
@@ -89,15 +105,16 @@ describe("createDotVault", () => {
 
 	});
 
-	it("reports parameters as they were read on the first request", async () => {
+	it("serves parameters as they were read on the first request", async () => {
 
 		await within(".env", "PARAMETER=secret\n", async () => {
 
+			const home = service(getPath);
 			const vault = createDotVault();
 
 			expect(await vault("PARAMETER")).toBe("secret");
 
-			await writeFile(join(service(getPath), ".env"), "PARAMETER=revised\n");
+			await writeFile(join(home, ".env"), "PARAMETER=revised\n");
 
 			expect(await vault("PARAMETER")).toBe("secret");
 

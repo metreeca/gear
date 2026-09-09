@@ -21,7 +21,7 @@ import type { Vault } from "./index.js";
  * Creates an environment vault.
  *
  * Parameters are looked up among the environment variables of the process as each request is served, so that a
- * variable defined after the vault was constructed is reported as well.
+ * variable defined after the vault was constructed is retrieved as well.
  *
  * Keys may be prefixed, so that parameters are namespaced within a shared environment: `prefix` is prepended as
  * given, without a separator of its own.
@@ -31,7 +31,7 @@ import type { Vault } from "./index.js";
  *
  * @returns A {@link Vault} retrieving parameters from the environment variables of the process
  *
- * @throws {Error} While retrieving a parameter, if no variable is defined under its key
+ * @throws {@link !Error Error} While retrieving a parameter, if no variable is defined under its key
  *
  * @see {@link https://nodejs.org/api/process.html#processenv Node.js `process.env`}
  *

@@ -16,7 +16,8 @@ a [discussion](https://github.com/metreeca/gear/discussions) and describe your p
 
 # Suggesting Features
 
-If you think you have a good idea about improving or extending this project, feel free to open
-an [issues](https://github.com/metreeca/gear/issues), using the dedicated template.
+Before opening an [issue](https://github.com/metreeca/gear/issues) to suggest a feature, search open issues for similar
+suggestions and, if something is found, just add any additional details in the comments.
 
-Again search open suggestions and, if something is found, just add any additional details in the comments.
+If you've really got a new idea about improving or extending this project, describing it using the dedicated template
+will make it much easier to evaluate.

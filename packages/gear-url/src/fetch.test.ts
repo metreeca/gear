@@ -48,14 +48,14 @@ async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
 }
 
 /**
- * Decodes byte chunks as text.
+ * Decodes response bodies as text.
  */
-function text(chunks: readonly Uint8Array[]): string {
-	return chunks.map(chunk => new TextDecoder().decode(chunk)).join("");
+async function text(responses: readonly Response[]): Promise<string> {
+	return (await Promise.all(responses.map(response => response.text()))).join("");
 }
 
 /**
- * Creates a transport reporting the response of `handler`, recording the exchanges routed through it.
+ * Creates a transport returning the response of `handler`, recording the exchanges routed through it.
  */
 function transport(handler: (request: Request) => Awaitable<Response>) {
 
@@ -83,54 +83,85 @@ function run<V>(stub: Fetch, task: () => AsyncIterable<V>): Promise<readonly V[]
 }
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 describe("fetch", () => {
 
 	describe("streaming", () => {
 
-		it("reports the body of each response as byte chunks", async () => {
+		it("emits the response of each request", async () => {
 
 			const { stub } = transport(({ url }) => new Response(url.endsWith("/one") ? "alpha" : "beta"));
 
-			const chunks = await run(stub, () => fetch()(requests(
+			const responses = await run(stub, () => fetch()(requests(
 				"https://example.com/one",
 				"https://example.com/two"
 			)));
 
-			expect(text(chunks)).toBe("alphabeta");
+			expect(await text(responses)).toBe("alphabeta");
 
 		});
 
-		it("yields no chunks for a response without a body", async () => {
+		it("emits a response without a body", async () => {
 
 			const { stub } = transport(() => new Response(null, { status: 204 }));
 
-			expect(await run(stub, () => fetch()(requests("https://example.com/")))).toEqual([]);
+			const responses = await run(stub, () => fetch()(requests("https://example.com/")));
+
+			expect(responses.map(({ status, body }) => ({ status, body }))).toEqual([{ status: 204, body: null }]);
 
 		});
 
-		it("cancels the response when the consumer stops early", async () => {
+		it("emits a response with its body unread", async () => {
 
-			const state = { cancelled: false };
+			const { stub } = transport(() => new Response("body"));
 
-			const { stub } = transport(() => new Response(new ReadableStream({
+			const responses = await run(stub, () => fetch()(requests("https://example.com/")));
 
-				pull(controller) { controller.enqueue(new TextEncoder().encode("chunk")); },
-				cancel() { state.cancelled = true; } // recording an effect has no functional equivalent
+			expect(responses[0]?.bodyUsed).toBe(false);
 
-			})));
+		});
+
+		it("draws one response at a time", async () => {
+
+			const { exchanges, stub } = transport(() => new Response("body"));
 
 			await executor(bind(createFetch, () => stub))(async () => {
 
-				const chunks = fetch()(requests("https://example.com/"))[Symbol.asyncIterator]();
+				const responses = fetch()(requests(
+					"https://example.com/one",
+					"https://example.com/two"
+				))[Symbol.asyncIterator]();
 
-				await chunks.next();
-				await chunks.return?.(); // as a downstream take() would, once satisfied
+				await responses.next();
+
+				expect(exchanges).toHaveLength(1);
+
+				await responses.return?.();
+
+			});
+
+		});
+
+		it("draws no further response when the consumer stops early", async () => {
+
+			const { exchanges, stub } = transport(() => new Response("body"));
+
+			await executor(bind(createFetch, () => stub))(async () => {
+
+				const responses = fetch()(requests(
+					"https://example.com/one",
+					"https://example.com/two"
+				))[Symbol.asyncIterator]();
+
+				await responses.next();
+				await responses.return?.(); // as a downstream take() would, once satisfied
 
 			});
 
 			await delay(10); // teardown propagates upstream asynchronously
 
-			expect(state.cancelled).toBeTruthy();
+			expect(exchanges).toHaveLength(1);
 
 		});
 
@@ -156,13 +187,34 @@ describe("fetch", () => {
 
 		});
 
-		it("reports requests stating a malformed URL", async () => {
+		it("exchanges each request on its own across applications", async () => {
 
-			const { stub } = transport(() => new Response("body"));
+			const { exchanges, stub } = transport(({ url }) => new Response(url.endsWith("/one") ? "alpha" : "beta"));
 
-			// screening malformed URLs is left to a monitoring middleware layered over the client by the caller
+			const task = fetch();
 
-			await expect(run(stub, () => fetch()(requests("malformed")))).rejects.toThrow(TypeError);
+			await executor(bind(createFetch, () => stub))(async () => {
+
+				expect(await text(await collect(task(requests("https://example.com/one"))))).toBe("alpha");
+				expect(await text(await collect(task(requests("https://example.com/two"))))).toBe("beta");
+
+			});
+
+			expect(exchanges).toHaveLength(2);
+
+		});
+
+		it("skips a request stating a malformed URL", async () => {
+
+			const { exchanges, stub } = transport(() => new Response("body"));
+
+			const responses = await run(stub, () => fetch()(requests(
+				"malformed",
+				"https://example.com/"
+			)));
+
+			expect(exchanges.map(({ url }) => url)).toEqual(["https://example.com/"]);
+			expect(responses.map(({ status }) => status)).toEqual([200]);
 
 		});
 
@@ -205,11 +257,34 @@ describe("fetch", () => {
 
 		});
 
+	});
+
+	describe("middlewares", () => {
+
+		/**
+		 * Creates a middleware appending `tag` to the `X-Tags` field of the request.
+		 */
+		function tagging(tag: string): Middleware {
+
+			return fetcher => (input, init) => {
+
+				const request = new Request(input, init);
+				const tags = request.headers.get("X-Tags");
+
+				request.headers.set("X-Tags", tags === null ? tag : `${tags},${tag}`);
+
+				return fetcher(request);
+
+			};
+
+		}
+
+
 		it("keeps a field stated by a middleware", async () => {
 
 			const { exchanges, stub } = transport(() => new Response("body"));
 
-			const tagging: Middleware = fetcher => (input, init) => {
+			const accepting: Middleware = fetcher => (input, init) => {
 
 				const request = new Request(input, init);
 
@@ -219,9 +294,19 @@ describe("fetch", () => {
 
 			};
 
-			await run(stub, () => fetch(tagging)(requests("https://example.com/")));
+			await run(stub, () => fetch(accepting)(requests("https://example.com/")));
 
 			expect(exchanges[0]?.headers.get("Accept")).toBe("application/json");
+
+		});
+
+		it("layers middlewares in request processing order", async () => {
+
+			const { exchanges, stub } = transport(() => new Response("body"));
+
+			await run(stub, () => fetch(tagging("first"), tagging("second"))(requests("https://example.com/")));
+
+			expect(exchanges[0]?.headers.get("X-Tags")).toBe("first,second");
 
 		});
 
@@ -229,19 +314,19 @@ describe("fetch", () => {
 
 	describe("responses", () => {
 
-		it("skips responses reporting an unsuccessful status", async () => {
+		it("skips responses stating an unsuccessful status", async () => {
 
 			const { stub } = transport(({ url }) => url.endsWith("/gone")
 				? new Response(null, { status: 404 })
 				: new Response("body")
 			);
 
-			const chunks = await run(stub, () => fetch()(requests(
+			const responses = await run(stub, () => fetch()(requests(
 				"https://example.com/gone",
 				"https://example.com/here"
 			)));
 
-			expect(text(chunks)).toBe("body");
+			expect(responses.map(({ status }) => status)).toEqual([200]);
 
 		});
 
@@ -259,10 +344,10 @@ describe("fetch", () => {
 
 		});
 
-		it("reports transport failures", async () => {
+		it("propagates a transport failure", async () => {
 
 			const { stub } = transport(() => {
-				throw new Error("broken transport"); // told apart from failures reported by the task by its message
+				throw new Error("broken transport"); // told apart from failures raised by the task by its message
 			});
 
 			const chunks = run(stub, () => fetch()(requests("https://example.com/")));

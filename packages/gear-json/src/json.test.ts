@@ -15,10 +15,11 @@
  */
 
 import type { Value } from "@metreeca/core";
-import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
+import { toArray } from "@metreeca/flow/sinks";
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
+import { process } from "./json.core.js";
 import { json } from "./json.js";
 
 
@@ -30,176 +31,191 @@ type Item = {
 }
 
 
-/**
- * Creates a feed carrying the given chunks.
- */
-function chunks(...values: readonly (string | Uint8Array)[]): Feed<string | Uint8Array> {
-	return items((async function* () { yield* values; })());
-}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * Drains a feed into an array.
- *
- * Hand-rolled rather than delegating to `Array.fromAsync()`, which the `ES2022` library the project compiles against
- * doesn't provide.
- */
-async function collect<V>(feed: AsyncIterable<V>): Promise<readonly V[]> {
+describe("process", () => {
 
-	const collected: V[] = [];
+	it("parses the document as a value", async () => {
 
-	for await (const item of feed) { collected.push(item); } // draining a feed has no functional equivalent
+		expect(await process<Item>(`{ "id": "1", "label": "alpha" }`))
+			.toEqual({ id: "1", label: "alpha" } satisfies Item);
 
-	return collected;
+	});
 
-}
+	it("parses documents rooted at values other than objects", async () => {
 
+		expect(await process<Value>(`[1, "alpha", null]`)).toEqual([1, "alpha", null] satisfies Value);
+
+	});
+
+	it("parses documents rooted at scalar values", async () => {
+
+		expect(await process<Value>(`42`)).toBe(42);
+
+	});
+
+	it("converts a document holding only whitespace to undefined", async () => {
+
+		expect(await process(" \n\t ")).toBeUndefined();
+
+	});
+
+	it("converts a document that cannot be parsed to undefined", async () => {
+
+		expect(await process(`{ "id": "1", `)).toBeUndefined();
+
+	});
+
+	describe("responses", () => {
+
+		/**
+		 * Creates a response stating the given content type, none if it is omitted.
+		 *
+		 * The field is stated as empty rather than left out, as the `Response` constructor infers one from the body.
+		 */
+		function response(body: BodyInit | null, type?: string): Response {
+			return new Response(body, { headers: { "Content-Type": type ?? "" } });
+		}
+
+
+		it("reads the response body as the document", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/json")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("decodes the response body as UTF-8", async () => {
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
+
+			expect(await process<Item>(response(bytes, "application/json")))
+				.toEqual({ id: "1", label: "città" } satisfies Item);
+
+		});
+
+		it("reads a response stating the UTF-8 charset under any of its labels", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/json; charset=UTF8")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a charset other than UTF-8 as UTF-8", async () => {
+
+			// JSON exchanged between systems is encoded as UTF-8, as RFC 8259 § 8.1 prescribes: a body stating
+			// another charset is reported to the log and read all the same, its undecodable bytes standing in as
+			// replacement characters
+
+			const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "latin1");
+
+			expect(await process<Item>(response(bytes, "application/json; charset=ISO-8859-1")))
+				.toEqual({ id: "1", label: "citt�" } satisfies Item);
+
+		});
+
+		it("reads a response stating a JSON-based content type", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/ld+json")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a content type with parameters", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "application/JSON; charset=utf-8")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating no content type", async () => {
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`)))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("reads a response stating a content type other than JSON", async () => {
+
+			// a mis-declared type is reported to the log and read all the same, as the parser tells JSON apart anyway
+
+			expect(await process<Item>(response(`{ "id": "1", "label": "alpha" }`, "text/html")))
+				.toEqual({ id: "1", label: "alpha" } satisfies Item);
+
+		});
+
+		it("converts a response without a body to undefined", async () => {
+
+			expect(await process(response(null, "application/json"))).toBeUndefined();
+
+		});
+
+	});
+
+});
 
 describe("json", () => {
 
-	it("reports the parsed document as a single value", async () => {
+	it("emits the value of each document in turn", async () => {
 
-		const values = json<Item>()(chunks(`{ "id": "1", "label": "alpha" }`));
+		const documents: readonly string[] = [
+			`{ "id": "1", "label": "alpha" }`,
+			`{ "id": "2", "label": "beta" }`
+		];
 
-		expect(await collect(values)).toEqual([
-			{ id: "1", label: "alpha" }
+		expect(await items(documents)(json<Item>())(toArray())).toEqual([
+			{ id: "1", label: "alpha" },
+			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
 	});
 
-	it("joins documents split across chunks", async () => {
+	it("drops documents holding no text or no parsable value", async () => {
 
-		const values = json<Item>()(chunks(`{ "id": "1", `, `"label": "al`, `pha" }`));
+		const documents: readonly string[] = [ " \n\t ", `{ "id": "1", `, `{ "id": "2", "label": "beta" }` ];
 
-		expect(await collect(values)).toEqual([
-			{ id: "1", label: "alpha" }
+		expect(await items(documents)(json<Item>())(toArray())).toEqual([
+			{ id: "2", label: "beta" }
 		] satisfies readonly Item[]);
 
 	});
 
-	it("decodes multibyte characters split across byte chunks", async () => {
-
-		const bytes = Buffer.from(`{ "id": "1", "label": "città" }`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-		const values = json<Item>()(chunks(bytes.subarray(0, cut), bytes.subarray(cut)));
-
-		expect(await collect(values)).toEqual([
-			{ id: "1", label: "città" }
-		] satisfies readonly Item[]);
-
-	});
-
-	it("skips documents whose byte sequences are left truncated by a switch to text", async () => {
-
-		const bytes = Buffer.from(`{ "id": "1", "label": "città`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-		// the withheld bytes are released at the end of the source rather than where the text resumes, so the
-		// replacement character trails the document rather than standing in for the truncated sequence
-
-		const values = json<Item>()(chunks(bytes.subarray(0, cut), `" }`));
-
-		expect(await collect(values)).toEqual([]);
-
-	});
-
-	it("decodes multibyte characters split across byte chunks resuming after text chunks", async () => {
-
-		const bytes = Buffer.from(`città" }`, "utf8");
-		const cut = bytes.indexOf(Buffer.from("à", "utf8"))+1; // between the two bytes of à
-
-		const values = json<Item>()(chunks(`{ "id": "1", "label": "`, bytes.subarray(0, cut), bytes.subarray(cut)));
-
-		expect(await collect(values)).toEqual([
-			{ id: "1", label: "città" }
-		] satisfies readonly Item[]);
-
-	});
-
-	it("reports documents rooted at values other than objects", async () => {
-
-		const values = json<Value>()(chunks(`[1, "alpha", null]`));
-
-		expect(await collect(values)).toEqual([
-			[1, "alpha", null]
-		] satisfies readonly Value[]);
-
-	});
-
-	it("reports documents rooted at scalar values", async () => {
-
-		const values = json<Value>()(chunks(`42`));
-
-		expect(await collect(values)).toEqual([
-			42
-		] satisfies readonly Value[]);
-
-	});
-
-	it("reports no values if the source reports no chunks", async () => {
-
-		const values = json()(chunks());
-
-		expect(await collect(values)).toEqual([]);
-
-	});
-
-	it("reports no values if the source reports only whitespace", async () => {
-
-		const values = json()(chunks(" \n\t "));
-
-		expect(await collect(values)).toEqual([]);
-
-	});
-
-	it("skips documents that cannot be parsed", async () => {
-
-		const values = json()(chunks(`{ "id": "1", `));
-
-		expect(await collect(values)).toEqual([]);
-
-	});
-
-	it("reports source failures", async () => {
+	it("propagates a source failure", async () => {
 
 		const failing = items((async function* () {
 
-			yield `{ "id": "1", `;
+			yield `{ "id": "1", "label": "alpha" }`;
 
-			throw new Error("broken source"); // told apart from failures reported by the task by its message
+			throw new Error("broken source"); // told apart from failures raised by the task by its message
 
 		})());
 
-		await expect(collect(json()(failing))).rejects.toThrow("broken source");
+		await expect(failing(json())(toArray())).rejects.toThrow("broken source");
 
 	});
 
-	it("drains the source before reporting the value", async () => {
+	it("emits a value as soon as its document is drawn", async () => {
 
-		const count = 1_000;
 		const state = { pulled: 0 }; // records how far the task pulls the source
 
 		async function* source(): AsyncIterable<string> {
 
-			yield "[";
-
-			for (const index of Array.from({ length: count }, (_, i) => i)) { // generators have no functional equivalent
+			for (const index of Array.from({ length: 10 }, (_, i) => i)) { // generators have no functional equivalent
 
 				state.pulled = index+1;
 
-				yield `${index > 0 ? "," : ""}{"id":"${index}","label":"label-${index}"}`;
+				yield `{ "id": "${index}", "label": "label-${index}" }`;
 
 			}
 
-			yield "]";
-
 		}
 
-		const values = json<readonly Item[]>()(items(source()))[Symbol.asyncIterator]();
+		const values = json<Item>()(items(source()))[Symbol.asyncIterator]();
 
-		await values.next();
+		expect((await values.next()).value).toEqual({ id: "0", label: "label-0" } satisfies Item);
+		expect(state.pulled).toBe(1);
 
-		expect(state.pulled).toBe(count);
+		await values.return?.();
 
 	});
 

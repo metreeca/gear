@@ -1,0 +1,93 @@
+/*
+ * Copyright © 2026 Metreeca srl
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { isArray, isObject, type Value } from "@metreeca/core"; // aliased, as the global is used
+import { unescape } from "@metreeca/core/strings";
+
+
+const DotPattern = "(?:^|\\.)(?<dot>\\w+)";
+const NamePattern = "\\['(?<name>(?:[^']|\\\\.)*)']";
+const IndexPattern = "\\[(?<index>\\d+)]";
+const WildcardPattern = "(?:^|\\.)\\*|\\[\\*]";
+
+const StepPattern = `(?:^\\$)?(?:(?:${DotPattern})|(?:${NamePattern})|(?:${IndexPattern})|(?:${WildcardPattern}))`;
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Selects values from a JSON value.
+ *
+ * Helper backing the `JPath` selector, which states the selection contract.
+ */
+export function select(value: Value, path: string): readonly Value[] {
+
+	return !path || path === "$" ? [value]
+		: parse(path).reduce<readonly Value[]>(step, [value]);
+
+
+	function parse(path: string): readonly RegExpExecArray[] {
+
+		// sticky, so that steps match contiguously; global, as required by `matchAll`
+
+		const steps = [...path.matchAll(new RegExp(StepPattern, "gy"))];
+
+		// the scan stops at the first unmatched position, leaving the tail of the path uncovered
+
+		const scanned = steps.reduce((length, step) => length + step[0].length, 0);
+
+		if ( scanned !== path.length ) {
+			throw new SyntaxError(`malformed path <${path}>`);
+		}
+
+		return steps;
+
+	}
+
+	function step(selection: readonly Value[], step: RegExpExecArray): readonly Value[] {
+
+		const { dot, name, index } = step.groups ?? {};
+
+		const property = dot ?? name;
+
+		// `undefined` isn't a JSON value: a value assembled in code carries it where a parsed one cannot
+
+		return (property !== undefined ? fields(selection, unescape(property))
+			: index !== undefined ? items(selection, Number(index))
+				: members(selection)).filter(value => value !== undefined);
+
+	}
+
+	function fields(selection: readonly Value[], key: string): readonly Value[] {
+
+		return selection.flatMap(value => isObject(value) && key in value ? [value[key]] : []);
+
+	}
+
+	function items(selection: readonly Value[], position: number): readonly Value[] {
+
+		return selection.flatMap(value => isArray<Value>(value) && position < value.length ? [value[position]] : []);
+
+	}
+
+	function members(selection: readonly Value[]): readonly Value[] {
+
+		return selection.flatMap(value => isArray<Value>(value) || isObject(value) ? Object.values(value) : []);
+
+	}
+
+
+}

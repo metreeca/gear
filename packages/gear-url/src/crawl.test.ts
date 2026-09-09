@@ -14,233 +14,464 @@
  * limitations under the License.
  */
 
+import type { Optional } from "@metreeca/core";
 import type { Awaitables } from "@metreeca/core/async";
+import type { Feed } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
 import { toArray } from "@metreeca/flow/sinks";
-import { take } from "@metreeca/flow/tasks";
+import { filter, flat, map, peek, take } from "@metreeca/flow/tasks";
 import { describe, expect, it } from "vitest";
-import { crawl } from "./crawl.js";
+import { crawl, type Source } from "./crawl.js";
 
 
 /**
- * A directed graph as an adjacency map, converging on `d` and leaving `z` unreachable from `a`.
+ * The base the test URLs are resolved against.
  */
-const graph: Record<string, readonly string[]> = {
-	a: ["b", "c"],
-	b: ["d"],
-	c: ["d", "e"],
-	d: [],
-	e: [],
-	z: []
-};
+const base = "https://example.com/";
 
 
-describe("crawl()", () => {
+/**
+ * Resolves a path against the test base.
+ */
+function href(path: string): string {
+	return new URL(path, base).href;
+}
 
-	it("should emit the seed nodes", async () => {
 
-		const values = await items(["a", "b"])(crawl(() => undefined))(toArray());
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-		expect(values).toEqual(["a", "b"]);
+describe("crawl", () => {
 
-	});
+	describe("with a walker", () => {
 
-	it("should emit nothing for an empty source", async () => {
-
-		const values = await items<string>([])(crawl(() => undefined))(toArray());
-
-		expect(values).toEqual([]);
-
-	});
-
-	it("should crawl reachable nodes breadth-first in level order", async () => {
-
-		// depth-first pre-order would emit ["a", "b", "d", "c", "e"]; `z` is unreachable from `a`
-
-		const values = await items(["a"])(crawl(node => graph[node]))(toArray());
-
-		expect(values).toEqual(["a", "b", "c", "d", "e"]);
-
-	});
-
-	it("should crawl converging nodes once, at their shallowest level", async () => {
-
-		// `f` is linked both from the seed and from `e`; the first arrival is the shallowest one
-
-		const converging: Record<string, readonly string[]> = { a: ["b", "f"], b: ["e"], e: ["f"], f: [] };
-
-		const values = await items(["a"])(crawl(node => converging[node]))(toArray());
-
-		expect(values).toEqual(["a", "b", "f", "e"]);
-
-	});
-
-	it("should terminate on cyclic graphs", async () => {
-
-		const cyclic: Record<string, readonly string[]> = { a: ["b"], b: ["a"] };
-
-		const values = await items(["a"])(crawl(node => cyclic[node]))(toArray());
-
-		expect(values).toEqual(["a", "b"]);
-
-	});
-
-	it("should share crawled nodes across seeds", async () => {
-
-		const shared: Record<string, readonly string[]> = { a: ["d"], c: ["d"], d: [] };
-
-		const values = await items(["a", "c"])(crawl(node => shared[node]))(toArray());
-
-		expect(values).toEqual(["a", "c", "d"]);
-
-	});
-
-	it("should crawl repeated seeds once", async () => {
-
-		const values = await items(["a", "a"])(crawl(() => undefined))(toArray());
-
-		expect(values).toEqual(["a"]);
-
-	});
-
-	it("should drain the seeds before descending", async () => {
-
-		// descending eagerly would emit ["a", "p", "x"]
-
-		const values = await items(["a", "x"])(crawl(node => node === "a" ? "p" : undefined))(toArray());
-
-		expect(values).toEqual(["a", "x", "p"]);
-
-	});
-
-	it("should emit the seeds before the source is drained", async () => {
-
-		let traversals = 0;
-
-		const seeds = items((async function* () {
-			for (let i = 0; true; i++) { yield `s${i}`; }
-		})());
-
-		const values = await seeds(crawl(() => {
-
-			traversals++;
-
-			return undefined;
-
-		}))(take(2))(toArray());
-
-		expect(values).toEqual(["s0", "s1"]);
-		expect(traversals).toBe(0); // the descent never starts, as the source is never exhausted
-
-	});
-
-	it("should treat an undefined traversal as a leaf", async () => {
-
-		const values = await items(["a"])(crawl(node => node === "a" ? ["b"] : undefined))(toArray());
-
-		expect(values).toEqual(["a", "b"]);
-
-	});
-
-	it("should emit iterable nodes whole", async () => {
-
-		const values = await items<readonly string[]>([["x", "y"]])(crawl(() => undefined))(toArray());
-
-		expect(values).toEqual([["x", "y"]]);
-
-	});
-
-	it("should match nodes by identity", async () => {
-
-		const one = { id: 1 };
-		const two = { id: 1 };
-
-		// the traverser yields `two` only if handed `one` itself, so both ends of the identity are exercised
-
-		const values = await items([one])(crawl(node => node === one ? [two] : undefined))(toArray());
-
-		expect(values).toEqual([{ id: 1 }, { id: 1 }]); // structurally equal, but crawled as distinct nodes
-
-	});
-
-	it("should expand every data shape the traverser returns", async () => {
-
-		const shapes: Record<string, undefined | Awaitables<string>> = {
-			a: "b",
-			b: ["c"],
-			c: new Set(["d"]),
-			d: items(["e"]),
-			e: (async function* () { yield "f"; })(),
-			f: undefined
+		/**
+		 * A directed graph as an adjacency map of paths, converging on `/d` and leaving `/z` unreachable from `/a`.
+		 */
+		const graph: Record<string, readonly string[]> = {
+			"/a": ["/b", "/c"],
+			"/b": ["/d"],
+			"/c": ["/d", "/e"],
+			"/d": [],
+			"/e": [],
+			"/z": []
 		};
 
-		const values = await items(["a"])(crawl(node => shapes[node]))(toArray());
 
-		expect(values).toEqual(["a", "b", "c", "d", "e", "f"]);
+		/**
+		 * Lists crawled URLs in string form.
+		 */
+		function hrefs(urls: readonly URL[]): readonly string[] {
+			return urls.map(String);
+		}
+
+		/**
+		 * Creates a walker resolving the links an adjacency map lists for a crawled path.
+		 */
+		function walker(map: Record<string, readonly string[]>): (url: URL) => Optional<readonly URL[]> {
+			return url => map[url.pathname]?.map(path => new URL(path, url));
+		}
+
+
+		it("emits the seed URLs", async () => {
+
+			const values = await items([href("/a"), href("/b")])(crawl(() => undefined))(toArray());
+
+			expect(hrefs(values)).toEqual([href("/a"), href("/b")]);
+
+		});
+
+		it("emits nothing for an empty source", async () => {
+
+			const values = await items<string>([])(crawl(() => undefined))(toArray());
+
+			expect(values).toEqual([]);
+
+		});
+
+		it("emits URLs as parsed objects", async () => {
+
+			const values = await items([href("/a")])(crawl(() => undefined))(toArray());
+
+			expect(values.every(value => value instanceof URL)).toBe(true);
+
+		});
+
+		it("emits URLs of its own, apart from the objects it was given", async () => {
+
+			const seed = new URL(href("/a"));
+
+			const values = await items([seed])(crawl(() => undefined))(toArray());
+
+			expect(values[0]).not.toBe(seed);
+			expect(hrefs(values)).toEqual([seed.href]);
+
+		});
+
+		it("crawls reachable URLs breadth-first in level order", async () => {
+
+			// depth-first pre-order would emit ["/a", "/b", "/d", "/c", "/e"]; `/z` is unreachable from `/a`
+
+			const values = await items([href("/a")])(crawl(walker(graph)))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b", "/c", "/d", "/e"].map(href));
+
+		});
+
+		it("crawls converging URLs once, at their shallowest level", async () => {
+
+			// `/f` is linked both from the seed and from `/e`; the first arrival is the shallowest one
+
+			const converging = { "/a": ["/b", "/f"], "/b": ["/e"], "/e": ["/f"], "/f": [] };
+
+			const values = await items([href("/a")])(crawl(walker(converging)))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b", "/f", "/e"].map(href));
+
+		});
+
+		it("terminates on cyclic graphs", async () => {
+
+			const cyclic = { "/a": ["/b"], "/b": ["/a"] };
+
+			const values = await items([href("/a")])(crawl(walker(cyclic)))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b"].map(href));
+
+		});
+
+		it("shares crawled URLs across seeds", async () => {
+
+			const shared = { "/a": ["/d"], "/c": ["/d"], "/d": [] };
+
+			const values = await items([href("/a"), href("/c")])(crawl(walker(shared)))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/c", "/d"].map(href));
+
+		});
+
+		it("crawls repeated seeds once", async () => {
+
+			const values = await items([href("/a"), href("/a")])(crawl(() => undefined))(toArray());
+
+			expect(hrefs(values)).toEqual([href("/a")]);
+
+		});
+
+		it("crawls URLs differing only in canonical form once", async () => {
+
+			// the parser lowercases the host and supplies the empty path
+
+			const values = await items(["https://example.com", "HTTPS://EXAMPLE.COM/"])(crawl(() => undefined))
+			(toArray());
+
+			expect(hrefs(values)).toEqual(["https://example.com/"]);
+
+		});
+
+		it("crawls each application independently", async () => {
+
+			const task = crawl(walker({ "/a": ["/b"] }));
+
+			expect(hrefs(await items([href("/a")])(task)(toArray()))).toEqual(["/a", "/b"].map(href));
+			expect(hrefs(await items([href("/a")])(task)(toArray()))).toEqual(["/a", "/b"].map(href));
+
+		});
+
+		it("crawls seeds and links stated as strings and as URLs alike", async () => {
+
+			const seed = href("/a");
+
+			const values = await items([seed, new URL(seed)])
+			(crawl(url => url.href === seed ? [new URL(seed)] : undefined))
+			(toArray());
+
+			expect(hrefs(values)).toEqual([seed]);
+
+		});
+
+		it("rejects a seed that cannot be parsed", async () => {
+
+			await expect(items(["/relative"])(crawl(() => undefined))(toArray())).rejects.toThrow(TypeError);
+
+		});
+
+		it("rejects a link that cannot be parsed", async () => {
+
+			await expect(items([href("/a")])(crawl(() => ["/relative"]))(toArray())).rejects.toThrow(TypeError);
+
+		});
+
+		it("drains the seeds before descending", async () => {
+
+			// descending eagerly would emit ["/a", "/p", "/x"]
+
+			const values = await items([href("/a"), href("/x")])(crawl(walker({ "/a": ["/p"] })))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/x", "/p"].map(href));
+
+		});
+
+		it("emits the seeds before the source is drained", async () => {
+
+			const state = { walks: 0 }; // records how far the descent got
+
+			const seeds = items((async function* () {
+
+				// generators have no functional equivalent
+
+				for ( let index = 0; true; index++ ) { yield href(`/s${index}`); }
+
+			})());
+
+			const values = await seeds(crawl(() => {
+
+				state.walks++;
+
+				return undefined;
+
+			}))(take(2))(toArray());
+
+			expect(hrefs(values)).toEqual(["/s0", "/s1"].map(href));
+			expect(state.walks).toBe(0); // the descent never starts, as the source is never exhausted
+
+		});
+
+		it("treats an undefined walk as a leaf", async () => {
+
+			const values = await items([href("/a")])(crawl(walker({ "/a": ["/b"] })))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b"].map(href));
+
+		});
+
+		it("expands every data shape the walker returns", async () => {
+
+			const shapes: Record<string, Source<Awaitables<string | URL>>> = {
+				"/a": [href("/b")],
+				"/b": new Set([new URL(href("/c"))]),
+				"/c": items([href("/d")]),
+				"/d": (async function* () { yield href("/e"); })(),
+				"/e": Promise.resolve([href("/f")]),
+				"/f": undefined
+			};
+
+			const values = await items([href("/a")])(crawl(url => shapes[url.pathname]))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b", "/c", "/d", "/e", "/f"].map(href));
+
+		});
+
+		it("supports asynchronous walkers", async () => {
+
+			const values = await items([href("/a")])(crawl(async url => walker(graph)(url)))(toArray());
+
+			expect(hrefs(values)).toEqual(["/a", "/b", "/c", "/d", "/e"].map(href));
+
+		});
+
+		it("closes the source when the consumer stops early", async () => {
+
+			const state = { closed: false }; // records the teardown of the source
+
+			const seeds = items((async function* () {
+
+				try {
+
+					yield href("/a");
+					yield href("/b");
+
+				} finally {
+
+					state.closed = true;
+
+				}
+
+			})());
+
+			const values = await seeds(crawl(() => undefined))(take(1))(toArray());
+
+			expect(hrefs(values)).toEqual([href("/a")]);
+			expect(state.closed).toBe(true);
+
+		});
 
 	});
 
-	it("should support asynchronous traversers", async () => {
+	describe("with a feeder, a walker and a mapper", () => {
 
-		const values = await items(["a"])(crawl(async node => graph[node]))(toArray());
+		/**
+		 * A retrieved page, as the intermediate representation the three-step crawl is driven and harvested from.
+		 */
+		interface Page {
 
-		expect(values).toEqual(["a", "b", "c", "d", "e"]);
+			readonly path: string;
+			readonly title: string;
 
-	});
+		}
 
-	it("should close the source when the stream is closed early", async () => {
 
-		let closed = false;
+		/**
+		 * The links of the test site, converging on `/d`.
+		 */
+		const site: Record<string, readonly string[]> = {
+			"/a": ["/b", "/c"],
+			"/b": ["/d"],
+			"/c": ["/d"],
+			"/d": []
+		};
 
-		const seeds = items((async function* () {
-			try {
-				yield "a";
-				yield "b";
-			} finally {
-				closed = true;
+
+		/**
+		 * States the page a crawled URL stands for.
+		 */
+		function page(url: URL): Page {
+			return { path: url.pathname, title: url.pathname.slice(1).toUpperCase() };
+		}
+
+		/**
+		 * States the pages the crawled URLs of a level stand for, skipping the ones the site doesn't include.
+		 */
+		function feeder(urls: Feed<URL>): Feed<Page> {
+			return urls(filter(url => url.pathname in site))(map(page));
+		}
+
+		/**
+		 * States the URLs a page links to.
+		 */
+		function links({ path }: Page): Optional<readonly URL[]> {
+			return site[path]?.map(linked => new URL(linked, base));
+		}
+
+		/**
+		 * States the title a page contributes.
+		 */
+		function title({ title }: Page): string {
+			return title;
+		}
+
+
+		it("emits the mapped results in level order", async () => {
+
+			const values = await items([href("/a")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("emits the seed results before descending", async () => {
+
+			// descending eagerly would emit ["A", "B", "C", "D"]
+
+			const values = await items([href("/a"), href("/d")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "D", "B", "C"]);
+
+		});
+
+		it("feeds every crawled URL once", async () => {
+
+			const fed: string[] = [];
+
+			// recording a reading has no functional equivalent
+
+			const values = await items([href("/a")])(crawl(
+				urls => feeder(urls(peek(url => fed.push(url.pathname)))),
+				links,
+				title
+			))(toArray());
+
+			expect(fed).toEqual(["/a", "/b", "/c", "/d"]); // `/d` converges from `/b` and `/c`, but is fed once
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("applies the feeder to one level at a time", async () => {
+
+			const levels: string[][] = [];
+
+			// recording the levels has no functional equivalent
+
+			function recording(urls: Feed<URL>): Feed<Page> {
+
+				const level: string[] = [];
+
+				levels.push(level);
+
+				return feeder(urls(peek(url => level.push(url.pathname))));
+
 			}
-		})());
 
-		const values = await seeds(crawl(() => undefined))(take(1))(toArray());
+			const values = await items([href("/a")])(crawl(recording, links, title))(toArray());
 
-		expect(values).toEqual(["a"]);
-		expect(closed).toBe(true);
-
-	});
-
-
-	describe("with a selector", () => {
-
-		it("should crawl nodes with equal keys once", async () => {
-
-			const one = { uri: "u" };
-			const two = { uri: "u" };
-
-			const values = await items([one])(crawl(node => node === one ? [two] : undefined, {
-				selector: node => node.uri
-			}))(toArray());
-
-			expect(values).toEqual([{ uri: "u" }]); // `two` keys to the same `u` as the seed
+			expect(levels).toEqual([["/a"], ["/b", "/c"], ["/d"]]);
+			expect(values).toEqual(["A", "B", "C", "D"]);
 
 		});
 
-		it("should crawl seeds with equal keys once", async () => {
+		it("walks and maps every value the feeder emits", async () => {
 
-			const values = await items([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
-				selector: node => node.uri
-			}))(toArray());
+			// a URL read as two pages contributes the results of both, and the links of both are crawled once
 
-			expect(values).toHaveLength(1);
+			const values = await items([href("/a")])(crawl(
+				urls => urls(map(url => items([page(url), { ...page(url), title: "!" }])))(flat()),
+				links,
+				title
+			))(toArray());
+
+			expect(values).toEqual(["A", "!", "B", "!", "C", "!", "D", "!"]);
 
 		});
 
-		it("should support asynchronous selectors", async () => {
+		it("crawls each application independently", async () => {
 
-			const values = await items([{ uri: "u" }, { uri: "u" }])(crawl(() => undefined, {
-				selector: async node => node.uri
-			}))(toArray());
+			const task = crawl(feeder, links, title);
 
-			expect(values).toHaveLength(1);
+			expect(await items([href("/a")])(task)(toArray())).toEqual(["A", "B", "C", "D"]);
+			expect(await items([href("/a")])(task)(toArray())).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("skips URLs the feeder emits nothing for", async () => {
+
+			const values = await items([href("/a"), href("/missing")])(crawl(feeder, links, title))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
+
+		});
+
+		it("crawls URLs contributing no result", async () => {
+
+			const values = await items([href("/a")])(crawl(feeder, links, page => page.path === "/d" ? "D" : undefined))
+			(toArray());
+
+			expect(values).toEqual(["D"]);
+
+		});
+
+		it("expands every data shape the mapper returns", async () => {
+
+			const shapes: Record<string, Source<string | Awaitables<string>>> = {
+				"/a": "A",
+				"/b": ["B"],
+				"/c": Promise.resolve(new Set(["C"])),
+				"/d": undefined
+			};
+
+			const values = await items([href("/a")])(crawl(feeder, links, page => shapes[page.path]))(toArray());
+
+			expect(values).toEqual(["A", "B", "C"]);
+
+		});
+
+		it("supports asynchronous steps", async () => {
+
+			const values = await items([href("/a")])(crawl(
+				urls => urls(filter(url => url.pathname in site))(map(async url => page(url))),
+				async page => links(page),
+				async page => title(page)
+			))(toArray());
+
+			expect(values).toEqual(["A", "B", "C", "D"]);
 
 		});
 
