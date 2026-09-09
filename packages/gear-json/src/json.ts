@@ -56,8 +56,8 @@ import { process } from "./json.core.js";
  *
  * @returns A task converting a feed of JSON documents, given as text or as responses, into a feed of values
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing documents, or whatever
- *                 reading the body of a response reports
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing documents, or
+ *                              whatever reading the body of a response reports
  *
  * @see {@link https://www.rfc-editor.org/rfc/rfc8259 RFC 8259 JSON Data Interchange Format}
  * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}

@@ -31,7 +31,7 @@ import type { Vault } from "./index.js";
  *
  * @returns A {@link Vault} retrieving parameters from the environment variables of the process
  *
- * @throws {Error} While retrieving a parameter, if no variable is defined under its key
+ * @throws {@link !Error Error} While retrieving a parameter, if no variable is defined under its key
  *
  * @see {@link https://nodejs.org/api/process.html#processenv Node.js `process.env`}
  *

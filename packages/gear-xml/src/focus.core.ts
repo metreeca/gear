@@ -88,45 +88,7 @@ type Scan = {
 /**
  * Extracts the main content of a markup tree.
  *
- * Draws from an X/HTML page the region carrying its main textual content, leaving behind the navigation, headers,
- * footers, sidebars and controls the page is framed by, so that a consumer works on the content it is after rather
- * than on the boilerplate around it.
- *
- * The region is the one the page marks as its own: the first `main` element, or the first element stating
- * `role="main"` where the page states no `main`. Names are matched as the tree carries them, case insensitively.
- *
- * Where the page marks none, the regions are the `article` elements it states, taken together, so that a page listing
- * entries is handed over whole rather than reduced to whichever entry comes first. Articles held by navigation,
- * headers, footers, sidebars and the other framing a reader is not after are left out, as are the ones nested inside
- * another article, which the enclosing one already carries. Articles carrying no text at all are widgets rather than
- * content, and leave the page to be scored.
- *
- * Where the page states none either, the region is the element holding the densest text: a long run of text counts for
- * more than the same amount of text scattered across short ones, and a container counts by how much of what it holds is
- * content rather than framing. Scripts, styles, navigation, headers, footers, sidebars, controls and embedded objects
- * count for nothing, whatever they hold, so a page framed by long menus is scored on its prose alone. Where two
- * elements are equally dense the one stated first wins, which is the outermost of a chain of sole children.
- *
- * Where the tree is a page, that is where it states an `html` or a `body` element or a title, the regions are handed
- * over inside the `body` of an `html` element, so that a consumer works on a page as it drew one. The `html` element
- * states a `head` with a copy of the title where the tree states one, so that a consumer reads the page the content
- * belongs to alongside the content itself: the title is the first `title` element stated outside the framing a reader
- * is not after, so that the caption of an embedded object is not mistaken for it. Where the tree is a bare fragment,
- * the regions are handed over as they stand.
- *
- * @param node The root of the tree to draw content from; only its descendants are considered, so a tree rooted at the
- *             very element carrying the content is scanned for a region inside it
- *
- * @returns A document holding a copy of each region carrying the main content of the tree rooted at `node`, several
- *          where the page states several articles, wrapped in a page where the tree is one; `undefined` if the tree
- *          holds no content. Each region records as `xml:base` the URL relative references in it resolve against,
- *          where the tree states one, so that they resolve as they did however deeply the region sat in the page. The
- *          tree drawn from is left untouched
- *
- * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-main-element WHATWG HTML - The main element}
- * @see {@link https://html.spec.whatwg.org/multipage/sections.html#the-article-element WHATWG HTML - The article
- * element}
- * @see {@link https://www.w3.org/TR/wai-aria-1.2/#main WAI-ARIA - main role}
+ * Helper backing the `focus()` task, which states the extraction contract.
  */
 export function process(node: AnyNode): undefined | Document {
 
@@ -207,15 +169,29 @@ export function process(node: AnyNode): undefined | Document {
 	 */
 	function scan(nodes: readonly AnyNode[]): Scan {
 
-		return nodes.map(weigh).reduce((total, item) => ({
+		return fold(nodes.map(weigh));
 
-			xchars: total.xchars+item.xchars,
-			echars: total.echars+item.echars,
 
-			densest: item.density > total.density ? item.densest : total.densest, // the first of equals is the outermost
-			density: Math.max(total.density, item.density)
+		/**
+		 * Totals a set of weights.
+		 *
+		 * @param scans The weights to total
+		 *
+		 * @returns The weight of the subtrees `scans` were taken from, taken together
+		 */
+		function fold(scans: readonly Scan[]): Scan {
 
-		}), Empty);
+			return scans.reduce((total, item) => ({
+
+				xchars: total.xchars+item.xchars,
+				echars: total.echars+item.echars,
+
+				densest: item.density > total.density ? item.densest : total.densest, // the first of equals is the outermost
+				density: Math.max(total.density, item.density)
+
+			}), Empty);
+
+		}
 
 
 		function weigh(node: AnyNode): Scan {
@@ -229,7 +205,9 @@ export function process(node: AnyNode): undefined | Document {
 			/**
 			 * Weighs the text held by an element.
 			 *
-			 * A leaf carrying text is weighed by the text itself, a container by how much of it is content.
+			 * A leaf carrying text is weighed by the text itself, a container by how much of it is content. An element
+			 * carrying no text neither carries nor dilutes, the line breaks, rules, images and metadata a page is laid
+			 * out with among them; framing dilutes whatever it holds, so that a page is not read as its own content.
 			 *
 			 * @param element The element to weigh
 			 *
@@ -237,9 +215,13 @@ export function process(node: AnyNode): undefined | Document {
 			 */
 			function weighElement(element: Element): Scan {
 
-				const { xchars, echars, densest, density } = scan(element.children);
+				const weighed = element.children.map(node => ({ node, scanned: weigh(node) }));
 
-				const children = element.children.filter(isTag);
+				const { xchars, echars, densest, density } = fold(weighed.map(({ scanned }) => scanned));
+
+				const children = weighed.flatMap(({ node, scanned }) => // framing tells a container apart from content
+					isTag(node) && (scanned.xchars > 0 || Ignored.has(name(node))) ? [ node ] : []
+				);
 
 				const diluting = children.length;
 				const carrying = children.filter(child => Textual.has(name(child))).length;
@@ -305,17 +287,37 @@ export function process(node: AnyNode): undefined | Document {
 		/**
 		 * Assembles a page holding a title and a set of regions.
 		 *
+		 * The URL the tree drawn from resolved against travels with the page, so that a consumer reads the URL the
+		 * content belongs to alongside the content itself.
+		 *
 		 * @param title The title the page states, if any
 		 * @param roots The regions the page holds
 		 *
 		 * @returns An `html` element holding `roots` in its `body`, stating a `head` with a copy of `title` where one
-		 *          is stated
+		 *          is stated and as `xml:base` the URL the tree drawn from resolved against, where it states one
 		 */
 		function paged(title: undefined | Element, roots: readonly Element[]): Element {
+
+			const target = located(node);
+
 			return holding("html", [
 				...(title === undefined ? [] : [ holding("head", [ cloneNode(title, true) ]) ]),
 				holding("body", roots)
-			]);
+			], target === undefined ? {} : { "xml:base": target });
+
+		}
+
+		/**
+		 * Draws the URL the tree drawn from resolves against.
+		 *
+		 * @param node The root of the tree drawn from
+		 *
+		 * @returns The URL `node` resolves against, taken from the root element of the tree where `node` is a
+		 *          document; `undefined` if the tree states none
+		 */
+		function located(node: AnyNode): undefined | string {
+			return isTag(node) ? based(node)
+				: nodes.filter(isTag).map(based).find(target => target !== undefined);
 		}
 
 		/**
@@ -323,12 +325,13 @@ export function process(node: AnyNode): undefined | Document {
 		 *
 		 * @param name The name of the element to assemble
 		 * @param children The nodes the element holds
+		 * @param attribs The attributes the element states
 		 *
-		 * @returns An element named `name` owning `children`
+		 * @returns An element named `name` owning `children` and stating `attribs`
 		 */
-		function holding(name: string, children: readonly Element[]): Element {
+		function holding(name: string, children: readonly Element[], attribs: Record<string, string> = {}): Element {
 
-			const element = new Element(name, {}, [ ...children ]);
+			const element = new Element(name, { ...attribs }, [ ...children ]);
 
 			children.forEach(child => { child.parent = element; }); // an element owns the nodes it is handed over
 
@@ -349,40 +352,47 @@ export function process(node: AnyNode): undefined | Document {
 		function rebased(region: Element): Element {
 
 			const clone = cloneNode(region, true);
-			const target = base(region);
+			const target = based(region);
 
 			clone.attribs = target === undefined ? clone.attribs : { ...clone.attribs, "xml:base": target };
 
 			return clone;
 
+		}
 
-			function base(element: Element): undefined | string {
+		/**
+		 * Draws the URL the references held by an element resolve against.
+		 *
+		 * @param element The element whose base URL is to be drawn
+		 *
+		 * @returns The URL `element` resolves against, each `xml:base` in scope resolved against the ones stated
+		 *          further up and one resolving to no absolute URL kept as stated; `undefined` if none is in scope
+		 */
+		function based(element: Element): undefined | string {
 
-				return scoped(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
+			return scoped(element).reduce<undefined | string>((base, href) => absolute(href, base) ?? href, undefined);
 
 
-				function scoped(element: Element): readonly string[] {
+			function scoped(element: Element): readonly string[] {
 
-					const parent = element.parent;
-					const inherited = parent !== null && isTag(parent) ? scoped(parent) : [];
+				const parent = element.parent;
+				const inherited = parent !== null && isTag(parent) ? scoped(parent) : [];
 
-					const href = element.attribs["xml:base"];
+				const href = element.attribs["xml:base"];
 
-					return href === undefined ? inherited : [ ...inherited, href ];
+				return href === undefined ? inherited : [ ...inherited, href ];
 
-				}
+			}
 
-				function absolute(href: string, base: undefined | string): undefined | string {
+			function absolute(href: string, base: undefined | string): undefined | string {
 
-					try {
+				try {
 
-						return new URL(href, base).href;
+					return new URL(href, base).href;
 
-					} catch { // a malformed or unresolvable reference leaves the base as it stands
+				} catch { // a malformed or unresolvable reference leaves the base as it stands
 
-						return undefined;
-
-					}
+					return undefined;
 
 				}
 

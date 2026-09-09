@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear-csv",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "CSV processing tasks for @metreeca/gear.",
   "keywords": [
     "typescript",
@@ -47,9 +47,9 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/flow": "^0.9.21",
-    "@metreeca/http": "^0.1.0",
-    "@metreeca/tape": "^0.10.0",
+    "@metreeca/flow": "^0.10.0",
+    "@metreeca/http": "^0.2.0",
+    "@metreeca/tape": "^0.10.1",
     "csv-parse": "^7.0.2"
   },
   "devDependencies": {

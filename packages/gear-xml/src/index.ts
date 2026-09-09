@@ -103,8 +103,8 @@ export function string(node: Target): string {
  *
  * Resolves the reference against the base URL in scope where it was drawn from, as the {@link xml} and {@link html}
  * parsers record it, so that a consumer works on an absolute IRI however deeply the reference sat in the document it
- * came from. A tree stating no base URL, as one parsed from text does, leaves the reference as it stands, as does a
- * value an expression computed.
+ * came from. A tree stating no base URL, as one parsed from text under no stated base does, leaves the reference as it
+ * stands, as does a value an expression computed.
  *
  * @param node The {@link Target} to read, either a node a selection reached or a value an expression computed
  *

@@ -18,6 +18,8 @@ import type { Optional } from "@metreeca/core";
 import type { Awaitable, Awaitables } from "@metreeca/core/async";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
+import type { URLLike } from "./index.js";
+
 
 /**
  * Possibly asynchronous, possibly absent value.
@@ -33,6 +35,7 @@ export type Source<T> =
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 /**
  * Creates a URL graph walker.
  *
@@ -43,8 +46,8 @@ export type Source<T> =
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
- * stated either as strings or as {@link !URL URL} objects, but reach `walker` and the feed as parsed objects, each
- * one the crawl's own and safe to be altered.
+ * stated as {@link URLLike} values, but reach `walker` and the feed as parsed objects, each one the crawl's own and
+ * safe to be altered.
  *
  * > [!NOTE]
  * >
@@ -68,8 +71,8 @@ export type Source<T> =
  * @returns A task converting a feed of seed URLs into a feed of the seeds and the URLs reachable from them, each as a
  *          parsed object
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `walker`
- *                 reports while stating the URLs linked from a URL
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing seeds, or
+ *                              whatever `walker` reports while stating the URLs linked from a URL
  *
  * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
  *                                      own, a relative reference among them
@@ -89,8 +92,8 @@ export type Source<T> =
  * @group Factories
  */
 export function crawl(
-	walker: (url: URL) => Source<Awaitables<string | URL>>
-): Task<string | URL, URL>;
+	walker: (url: URL) => Source<Awaitables<URLLike>>
+): Task<URLLike, URL>;
 
 /**
  * Creates a URL graph harvester.
@@ -104,7 +107,9 @@ export function crawl(
  *
  * Retrieval is stated as a task over a whole level rather than as a step per URL, so how many URLs are retrieved at a
  * time is the consumer's to state with the tasks already at hand: a forked `feeder` retrieves several at once, an
- * unforked one retrieves them in turn. A URL is left out of the harvest by emitting nothing for it.
+ * unforked one retrieves them in turn. A URL is left out of the harvest by emitting nothing for it. Seeds and links
+ * are stated as {@link URLLike} values, but reach `feeder` as parsed objects, each one the crawl's own and safe to be
+ * altered.
  *
  * > [!NOTE]
  * >
@@ -139,8 +144,8 @@ export function crawl(
  *
  * @returns A task converting a feed of seed URLs into a feed of the results derived from every crawled URL
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing seeds, or whatever `feeder`,
- *                 `walker` and `mapper` report while reading, walking and mapping a URL
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing seeds, or
+ *                              whatever `feeder`, `walker` and `mapper` report while reading, walking and mapping a URL
  *
  * @throws {@link !TypeError TypeError} While the feed is consumed, if a seed or a link cannot be parsed on its
  *                                      own, a relative reference among them
@@ -163,30 +168,30 @@ export function crawl(
  */
 export function crawl<V, R>(
 	feeder: Task<URL, V>,
-	walker: (data: V) => Source<Awaitables<string | URL>>,
+	walker: (data: V) => Source<Awaitables<URLLike>>,
 	mapper: (data: V) => Source<R | Awaitables<R>>
-): Task<string | URL, R>;
+): Task<URLLike, R>;
 
 /**
  * Creates a URL graph walker or harvester.
  */
 export function crawl<V, R>(...steps:
 	| [
-		walker: (url: URL) => Source<Awaitables<string | URL>>
+		walker: (url: URL) => Source<Awaitables<URLLike>>
 	]
 	| [
 		feeder: Task<URL, V>,
-		walker: (data: V) => Source<Awaitables<string | URL>>,
+		walker: (data: V) => Source<Awaitables<URLLike>>,
 		mapper: (data: V) => Source<R | Awaitables<R>>
 	]
-): Task<string | URL, URL | R> {
+): Task<URLLike, URL | R> {
 
 	return steps.length === 1
 		? roam(steps[0])
 		: reap(steps[0], steps[1], steps[2]);
 
 
-	function roam(walker: (url: URL) => Source<Awaitables<string | URL>>): Task<string | URL, URL> {
+	function roam(walker: (url: URL) => Source<Awaitables<URLLike>>): Task<URLLike, URL> {
 
 		return source => items((async function* () {
 
@@ -230,9 +235,9 @@ export function crawl<V, R>(...steps:
 
 	function reap<V, R>(
 		feeder: Task<URL, V>,
-		walker: (data: V) => Source<Awaitables<string | URL>>,
+		walker: (data: V) => Source<Awaitables<URLLike>>,
 		mapper: (data: V) => Source<R | Awaitables<R>>
-	): Task<string | URL, R> {
+	): Task<URLLike, R> {
 
 		return source => items((async function* () {
 
@@ -268,7 +273,7 @@ export function crawl<V, R>(...steps:
 	}
 
 
-	function admitting(): (links: Optional<Awaitables<string | URL>>) => AsyncIterable<URL> {
+	function admitting(): (links: Optional<Awaitables<URLLike>>) => AsyncIterable<URL> {
 
 		const crawled = new Set<string>();
 

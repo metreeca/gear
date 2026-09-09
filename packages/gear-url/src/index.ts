@@ -22,5 +22,15 @@
  * @see {@link https://www.rfc-editor.org/rfc/rfc3986 RFC 3986 Uniform Resource Identifier (URI): Generic Syntax}
  */
 
+/**
+ * Possibly unparsed URL.
+ *
+ * Strings and {@link !URL URL} objects are taken uniformly, so that a consumer hands over whatever it already holds.
+ */
+export type URLLike =
+	| string
+	| URL;
+
+
 export * from "./fetch.js";
 export * from "./crawl.js";

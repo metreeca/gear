@@ -49,6 +49,9 @@ export type JPath = {
 	 * Arrays are entered only through an index or a wildcard step, so a path reaching the properties of the objects
 	 * held by an array must include an explicit `[*]` or `.*` step.
 	 *
+	 * Only values a JSON document may state are selected: `null` is selected as the value it states, while
+	 * `undefined`, which only a value assembled in code carries, is passed over exactly as an absent property is.
+	 *
 	 * @param path The selection path; an empty path or `$` selects the target values unchanged
 	 *
 	 * @returns An immutable list of the values selected by `path`, ordered by target and, within each target, in
@@ -80,7 +83,7 @@ export type JPath = {
  *
  * @returns A task converting a feed of values into a feed of path selectors
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing values
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing values
  *
  * @group Factories
  */
@@ -107,8 +110,9 @@ export function jpath(): Task<Value, JPath>; // without a mapper the selector is
  *
  * @returns A task converting a feed of values into a feed of mapped results
  *
- * @throws {Error} While the feed is consumed, whatever the source reports while producing values, or whatever `mapper`
- *                 reports while mapping a value, including a {@link !SyntaxError SyntaxError} for a malformed path
+ * @throws {@link !Error Error} While the feed is consumed, whatever the source reports while producing values, or
+ *                              whatever `mapper` reports while mapping a value, including a {@link !SyntaxError
+ *                              SyntaxError} for a malformed path
  *
  * @example
  *
@@ -149,8 +153,8 @@ export function jpath(...values: readonly Value[]): JPath;
  */
 export function jpath(...args: readonly Value[] | readonly [mapper: (path: JPath) => unknown]): unknown {
 
-	return isMapper(args) ? map((value: Value) => args[0](selector([value])))
-		: args.length === 0 ? map((value: Value) => selector([value]))
+	return isMapper(args) ? map<Value, unknown>(value => args[0](selector([value])))
+		: args.length === 0 ? map<Value, JPath>(value => selector([value]))
 			: selector(args);
 
 

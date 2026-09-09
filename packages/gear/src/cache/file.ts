@@ -65,10 +65,10 @@ const EntryPattern = /^[\da-f]{64}$/;
  *
  * @returns A fresh, immutable {@link Bucket} holding values as files under `options.path`
  *
- * @throws {Error} If created outside an execution, as {@link service} defines
+ * @throws {@link !Error Error} If created outside an execution, as {@link service} defines
  *
- * @throws {Error} While storing or retrieving a value, if the folder holding the cache is not accessible or is a
- *                 plain file
+ * @throws {@link !Error Error} While storing or retrieving a value, if the folder holding the cache is not accessible
+ *                              or is a plain file
  *
  * @see {@link https://nodejs.org/api/fs.html Node.js `fs`}
  *

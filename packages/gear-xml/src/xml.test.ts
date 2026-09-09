@@ -58,6 +58,27 @@ function text(node: undefined | NodeWithChildren): string {
 
 describe("process", () => {
 
+	/**
+	 * Creates a response stating the given retrieval URL and content type.
+	 *
+	 * `Response` computes `url` from the exchange that produced it, so a synthesised one always reports an empty
+	 * string: the own property shadows the prototype getter to stand in for a real exchange. The content type is
+	 * stated as empty rather than left out, as the constructor infers one from the body.
+	 */
+	function response(body: BodyInit | null, { url, type }: {
+
+		readonly url?: string;
+		readonly type?: string;
+
+	} = {}): Response {
+
+		const response = new Response(body, { headers: { "Content-Type": type ?? "" } });
+
+		return url === undefined ? response : Object.defineProperty(response, "url", { value: url });
+
+	}
+
+
 	it("parses the document as a tree", async () => {
 
 		expect(outline(await process(`<item id="1"><label>alpha</label></item>`))).toEqual([
@@ -122,27 +143,6 @@ describe("process", () => {
 	});
 
 	describe("responses", () => {
-
-		/**
-		 * Creates a response stating the given retrieval URL and content type.
-		 *
-		 * `Response` computes `url` from the exchange that produced it, so a synthesised one always reports an empty
-		 * string: the own property shadows the prototype getter to stand in for a real exchange. The content type is
-		 * stated as empty rather than left out, as the constructor infers one from the body.
-		 */
-		function response(body: BodyInit | null, { url, type }: {
-
-			readonly url?: string;
-			readonly type?: string;
-
-		} = {}): Response {
-
-			const response = new Response(body, { headers: { "Content-Type": type ?? "" } });
-
-			return url === undefined ? response : Object.defineProperty(response, "url", { value: url });
-
-		}
-
 
 		it("reads the response body as the document", async () => {
 
@@ -258,6 +258,59 @@ describe("process", () => {
 
 	});
 
+	describe("bases", () => {
+
+		it("records a stated base as an xml:base attribute on the root", async () => {
+
+			expect(outline(await process(`<item/>`, "https://example.com/a/b"))).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.com/a/b" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("records a stated base in place of the retrieval URL", async () => {
+
+			const document = await process(response(`<item/>`, { url: "https://example.com/a/b" }),
+				"https://example.net/x/"
+			);
+
+			expect(outline(document)).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.net/x/" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("resolves a declared xml:base against a stated base", async () => {
+
+			expect(outline(await process(`<item xml:base="../c/"/>`, "https://example.com/a/b"))).toEqual([
+				{ name: "item", attributes: { "xml:base": "https://example.com/c/" }, children: [] }
+			] satisfies readonly Outline[]);
+
+		});
+
+		it("reports a stated base that is a relative reference", async () => {
+
+			await expect(process(`<item/>`, "../c/")).rejects.toThrow(RangeError);
+
+		});
+
+		it("reports a stated base that is a relative reference, whatever the retrieval URL", async () => {
+
+			// a base is taken as it stands, so the retrieval URL never stands in as the one to resolve it against
+
+			await expect(process(response(`<item/>`, { url: "https://example.com/a/b" }), "../c/"))
+				.rejects.toThrow(RangeError);
+
+		});
+
+		it("reports a stated base that cannot serve as a resolution base", async () => {
+
+			await expect(process(`<item/>`, "urn:example:x")).rejects.toThrow(RangeError);
+
+		});
+
+	});
+
 });
 
 describe("xml", () => {
@@ -280,6 +333,27 @@ describe("xml", () => {
 		expect((await items(documents)(xml())(toArray())).map(document => outline(document))).toEqual([
 			[{ name: "item", attributes: { id: "1" }, children: [] }]
 		] satisfies readonly (readonly Outline[])[]);
+
+	});
+
+	it("records the stated base on every tree", async () => {
+
+		const documents: readonly string[] = [ `<item id="1"/>`, `<item id="2"/>` ];
+
+		const trees = await items(documents)(xml("https://example.com/a/b"))(toArray());
+
+		expect(trees.flatMap(document => outline(document)).map(({ attributes }) => attributes["xml:base"])).toEqual([
+			"https://example.com/a/b",
+			"https://example.com/a/b"
+		]);
+
+	});
+
+	it("reports a stated base that is not resolvable as the task is created", async () => {
+
+		// stated once for the whole feed, so a base that cannot serve is reported before any document is drawn
+
+		expect(() => xml("../c/")).toThrow(RangeError);
 
 	});
 

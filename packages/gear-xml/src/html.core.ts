@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+import type { IRI } from "@metreeca/core/resource";
 import { parseItem } from "@metreeca/http";
 import { log } from "@metreeca/tape";
 import type { AnyNode, Document } from "domhandler";
 import { isTag } from "domhandler";
 import { DomUtils, parseDocument } from "htmlparser2";
+import { isBase } from "./index.core.js";
 
 
 /**
@@ -59,7 +61,7 @@ const HTMLPrescan = 1024;
  * @see {@link https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inforeign WHATWG HTML - Parsing tokens
  * in foreign content}
  */
-const ForeignRoots = new Set([ "svg", "math" ]);
+const ForeignRoots = new Set(["svg", "math"]);
 
 /**
  * The elements holding HTML content inside a foreign content subtree.
@@ -67,7 +69,7 @@ const ForeignRoots = new Set([ "svg", "math" ]);
  * @see {@link https://html.spec.whatwg.org/multipage/parsing.html#html-integration-point WHATWG HTML - HTML integration
  * point}
  */
-const ForeignHosts = new Set([ "foreignObject", "desc", "title", "annotation-xml", "mi", "mo", "mn", "ms", "mtext" ]);
+const ForeignHosts = new Set(["foreignObject", "desc", "title", "annotation-xml", "mi", "mo", "mn", "ms", "mtext"]);
 
 /**
  * The camelCase attribute names SVG and MathML define, keyed by the folded form HTML parsing produces.
@@ -79,65 +81,65 @@ const ForeignHosts = new Set([ "foreignObject", "desc", "title", "annotation-xml
  */
 const ForeignAttributes = new Map([
 
-	[ "attributename", "attributeName" ],
-	[ "attributetype", "attributeType" ],
-	[ "basefrequency", "baseFrequency" ],
-	[ "baseprofile", "baseProfile" ],
-	[ "calcmode", "calcMode" ],
-	[ "clippathunits", "clipPathUnits" ],
-	[ "definitionurl", "definitionURL" ],
-	[ "diffuseconstant", "diffuseConstant" ],
-	[ "edgemode", "edgeMode" ],
-	[ "filterunits", "filterUnits" ],
-	[ "glyphref", "glyphRef" ],
-	[ "gradienttransform", "gradientTransform" ],
-	[ "gradientunits", "gradientUnits" ],
-	[ "kernelmatrix", "kernelMatrix" ],
-	[ "kernelunitlength", "kernelUnitLength" ],
-	[ "keypoints", "keyPoints" ],
-	[ "keysplines", "keySplines" ],
-	[ "keytimes", "keyTimes" ],
-	[ "lengthadjust", "lengthAdjust" ],
-	[ "limitingconeangle", "limitingConeAngle" ],
-	[ "markerheight", "markerHeight" ],
-	[ "markerunits", "markerUnits" ],
-	[ "markerwidth", "markerWidth" ],
-	[ "maskcontentunits", "maskContentUnits" ],
-	[ "maskunits", "maskUnits" ],
-	[ "numoctaves", "numOctaves" ],
-	[ "pathlength", "pathLength" ],
-	[ "patterncontentunits", "patternContentUnits" ],
-	[ "patterntransform", "patternTransform" ],
-	[ "patternunits", "patternUnits" ],
-	[ "pointsatx", "pointsAtX" ],
-	[ "pointsaty", "pointsAtY" ],
-	[ "pointsatz", "pointsAtZ" ],
-	[ "preservealpha", "preserveAlpha" ],
-	[ "preserveaspectratio", "preserveAspectRatio" ],
-	[ "primitiveunits", "primitiveUnits" ],
-	[ "refx", "refX" ],
-	[ "refy", "refY" ],
-	[ "repeatcount", "repeatCount" ],
-	[ "repeatdur", "repeatDur" ],
-	[ "requiredextensions", "requiredExtensions" ],
-	[ "requiredfeatures", "requiredFeatures" ],
-	[ "specularconstant", "specularConstant" ],
-	[ "specularexponent", "specularExponent" ],
-	[ "spreadmethod", "spreadMethod" ],
-	[ "startoffset", "startOffset" ],
-	[ "stddeviation", "stdDeviation" ],
-	[ "stitchtiles", "stitchTiles" ],
-	[ "surfacescale", "surfaceScale" ],
-	[ "systemlanguage", "systemLanguage" ],
-	[ "tablevalues", "tableValues" ],
-	[ "targetx", "targetX" ],
-	[ "targety", "targetY" ],
-	[ "textlength", "textLength" ],
-	[ "viewbox", "viewBox" ],
-	[ "viewtarget", "viewTarget" ],
-	[ "xchannelselector", "xChannelSelector" ],
-	[ "ychannelselector", "yChannelSelector" ],
-	[ "zoomandpan", "zoomAndPan" ]
+	["attributename", "attributeName"],
+	["attributetype", "attributeType"],
+	["basefrequency", "baseFrequency"],
+	["baseprofile", "baseProfile"],
+	["calcmode", "calcMode"],
+	["clippathunits", "clipPathUnits"],
+	["definitionurl", "definitionURL"],
+	["diffuseconstant", "diffuseConstant"],
+	["edgemode", "edgeMode"],
+	["filterunits", "filterUnits"],
+	["glyphref", "glyphRef"],
+	["gradienttransform", "gradientTransform"],
+	["gradientunits", "gradientUnits"],
+	["kernelmatrix", "kernelMatrix"],
+	["kernelunitlength", "kernelUnitLength"],
+	["keypoints", "keyPoints"],
+	["keysplines", "keySplines"],
+	["keytimes", "keyTimes"],
+	["lengthadjust", "lengthAdjust"],
+	["limitingconeangle", "limitingConeAngle"],
+	["markerheight", "markerHeight"],
+	["markerunits", "markerUnits"],
+	["markerwidth", "markerWidth"],
+	["maskcontentunits", "maskContentUnits"],
+	["maskunits", "maskUnits"],
+	["numoctaves", "numOctaves"],
+	["pathlength", "pathLength"],
+	["patterncontentunits", "patternContentUnits"],
+	["patterntransform", "patternTransform"],
+	["patternunits", "patternUnits"],
+	["pointsatx", "pointsAtX"],
+	["pointsaty", "pointsAtY"],
+	["pointsatz", "pointsAtZ"],
+	["preservealpha", "preserveAlpha"],
+	["preserveaspectratio", "preserveAspectRatio"],
+	["primitiveunits", "primitiveUnits"],
+	["refx", "refX"],
+	["refy", "refY"],
+	["repeatcount", "repeatCount"],
+	["repeatdur", "repeatDur"],
+	["requiredextensions", "requiredExtensions"],
+	["requiredfeatures", "requiredFeatures"],
+	["specularconstant", "specularConstant"],
+	["specularexponent", "specularExponent"],
+	["spreadmethod", "spreadMethod"],
+	["startoffset", "startOffset"],
+	["stddeviation", "stdDeviation"],
+	["stitchtiles", "stitchTiles"],
+	["surfacescale", "surfaceScale"],
+	["systemlanguage", "systemLanguage"],
+	["tablevalues", "tableValues"],
+	["targetx", "targetX"],
+	["targety", "targetY"],
+	["textlength", "textLength"],
+	["viewbox", "viewBox"],
+	["viewtarget", "viewTarget"],
+	["xchannelselector", "xChannelSelector"],
+	["ychannelselector", "yChannelSelector"],
+	["zoomandpan", "zoomAndPan"]
 
 ]);
 
@@ -150,67 +152,20 @@ const logger = log(import.meta.url);
 /**
  * Parses an HTML document.
  *
- * Reads a document as a tree, so that a consumer works on the structure the document states rather than on its text.
- *
- * The document is given either as text or as a response carrying it as its body. A document holding no text, or only
- * whitespace, is read as no document at all, as is a response carrying no body.
- *
- * Trees are shaped as the ones produced for XML, so that a single set of path expressions serves both: names are
- * matched as the tree carries them, without namespaces, and no `html`, `head` or `body` element is supplied where the
- * source states none.
- *
- * Response bodies are decoded as the `charset` parameter of the content type states, as the `meta` charset declared in
- * the opening kilobyte of the document where the content type states none, and as UTF-8 where neither does, whatever
- * the windows-1252 default HTML carries for historical reasons. A byte order mark opening a document is stripped, both
- * from text and from a body decoded under a Unicode charset.
- *
- * A response stating a content type other than `text/html` or `application/xhtml+xml`, or a charset the platform
- * doesn't decode, is reported to the log and read all the same, the body decoded as UTF-8 where the charset is not
- * known, so that a mis-declared source is diagnosed without being shut out. The report is the only sign a document is
- * not what it was taken for, as parsing never fails.
- *
- * Trees record the URL relative references resolve against as an `xml:base` attribute on each of their root elements,
- * so that a consumer resolves them by the standard rules without tracking the request alongside the tree. The URL is
- * the one stated by the first `base` element in tree order, resolved against the URL the response was retrieved from,
- * and the retrieval URL itself where the document states none; the retrieval URL is the one the request landed on,
- * which differs from the one it was issued for if it was redirected, and a root that already declares `xml:base` keeps
- * its own value, resolved against it. Nothing is recorded for a document given as text that states no absolute base,
- * or for a synthesised response, which carries no URL.
- *
- * > [!WARNING]
- * > Parsing is forgiving and never fails. The tree produced is always structurally sound, since anything the source
- * > leaves unclosed is closed at the end of the input, but it may misrepresent malformed input rather than reject it,
- * > and it reflects the markup as stated rather than as a browser would repair it: misnested elements are left
- * > misnested, and content a browser would relocate stays where the source put it. Expressions are best written
- * > against the tree the parser actually produces.
- *
- * > [!NOTE]
- * > Names are folded to lowercase, as HTML prescribes, except inside inline SVG and MathML, where the camelCase
- * > element and attribute names the two languages define are restored: `clipPath` and `@viewBox` are selected as
- * > written, while the HTML content hosted by `foreignObject` and the MathML text elements is folded like the rest of
- * > the document.
- *
- * @param document The document to parse, given either as text or as a response carrying it as its body
- *
- * @returns A tree holding the content of `document`; `undefined` if it holds no text
- *
- * @throws {Error} Whatever reading the body of a response reports
- *
- * @see {@link https://html.spec.whatwg.org/multipage/ WHATWG HTML Living Standard}
- * @see {@link https://www.rfc-editor.org/rfc/rfc9110#section-8.3 RFC 9110 § 8.3 - Content-Type}
+ * Helper backing the `html()` task, which states the parsing contract.
  */
-export async function process(document: string | Response): Promise<undefined | Document> {
+export async function process(document: string | Response, base?: IRI): Promise<undefined | Document> {
 
 	const text = (document instanceof Response ? await read(document) : document).trim();
 
 	// a document holding nothing but whitespace, a byte order mark included, holds no content
 
-	return text ? rebase(adjust(parseDocument(text)), locate(document)) : undefined;
+	return text ? rebase(adjust(parseDocument(text)), locate(document, base)) : undefined;
 
 
 	async function read(response: Response): Promise<string> {
 
-		const [ type, parameters ] = parseItem(response.headers.get("Content-Type"));
+		const [type, parameters] = parseItem(response.headers.get("Content-Type"));
 
 		if ( type && !HTMLType.test(type) ) {
 			logger.warn`unexpected <${type}> content type`;
@@ -278,7 +233,7 @@ export async function process(document: string | Response): Promise<undefined | 
 
 			if ( own ) {
 				element.attribs = Object.fromEntries(Object.entries(element.attribs)
-					.map(([ name, value ]): [ string, string ] => [ ForeignAttributes.get(name) ?? name, value ])
+					.map(([name, value]): [string, string] => [ForeignAttributes.get(name) ?? name, value])
 				);
 			}
 
@@ -290,8 +245,24 @@ export async function process(document: string | Response): Promise<undefined | 
 
 	}
 
-	function locate(document: string | Response): undefined | URL {
-		return document instanceof Response && document.url ? new URL(document.url) : undefined;
+	function locate(document: string | Response, base: undefined | IRI): undefined | URL {
+
+		// a stated base is taken as it stands, so the retrieval URL never stands in as the one to resolve it against
+
+		if ( base !== undefined ) {
+
+			if ( !isBase(base) ) {
+				throw new RangeError(`expected resolvable base URL <${base}>`);
+			}
+
+			return new URL(base);
+
+		} else {
+
+			return document instanceof Response && document.url ? new URL(document.url) : undefined;
+
+		}
+
 	}
 
 	function rebase(document: Document, base: undefined | URL): Document {

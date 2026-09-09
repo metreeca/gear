@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { type IRI, isIRI } from "@metreeca/core/resource";
 import type { AnyNode, Element } from "domhandler";
 import { hasChildren, isTag } from "domhandler";
 import { DomUtils } from "htmlparser2";
@@ -52,6 +53,23 @@ export const Ignored = new Set([
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Checks if a reference states a base URL relative references resolve against.
+ *
+ * Accepts the `"hierarchical"` identifiers RFC 3986 defines reference resolution for, that is a scheme followed by a
+ * root-relative path, so that a reference a tree carries resolves by the standard rules. A relative reference states
+ * no base of its own, and an opaque one, `urn:example:x` among them, states nothing to resolve a reference against.
+ *
+ * @param value The value to check
+ *
+ * @returns `true` if `value` is an IRI a relative reference resolves against; `false` otherwise
+ *
+ * @see {@link https://www.rfc-editor.org/rfc/rfc3986#section-5.2.3 RFC 3986 § 5.2.3 - Merge Paths}
+ */
+export function isBase(value: unknown): value is IRI {
+	return isIRI(value, "hierarchical");
+}
 
 /**
  * Reads the name of an element as the tree carries it.

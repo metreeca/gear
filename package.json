@@ -1,6 +1,6 @@
 {
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Ready-made tasks and shared services for ETL jobs.",
   "keywords": [
     "typescript",
@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "clean": "npm run clean --workspaces && rm -rf dist docs node_modules",
-    "setup": "npm install",
+    "prime": "npm ci",
+    "setup": "npm ci && sh package.sh",
     "build": "npm run build --workspaces && rm -rf docs && npx typedoc",
     "check": "npm run check --workspaces",
     "proof": "npm run build && npx five-server docs --open --watch=false"
