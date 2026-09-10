@@ -30,8 +30,8 @@ export default defineConfig({
 		passWithNoTests: true,
 
 		typecheck: {
-			include: ["**/src/*.test-d.ts"],
-			tsconfig: "tsconfig.json"
+			include: ["**/src/**/*.test-d.ts"],
+			tsconfig: "packages/gear/tsconfig.json"
 		}
 
 	},
