@@ -85,10 +85,16 @@ export async function* process<R extends Record = Record>(document: string | Res
 		skipEmptyLines: skip === true,
 		skipRecordsWithEmptyValues: skip === true,
 
+		// the parser trims unquoted fields alone, so quoted values are trimmed as they are cast, where a value left
+		// blank is turned into `undefined`; a column label stays a string, as records are keyed by it
+
 		trim: trim === true,
+		cast: trim === true ? (value, { header }) => header ? value.trim() : value.trim() || undefined : undefined,
+
 		relaxColumnCount: flex === true,
 
 		skipRecordsWithError: true,
+
 		onSkip: error => void logger.warn`(${error?.lines}) malformed record (${error?.message})`
 
 	});

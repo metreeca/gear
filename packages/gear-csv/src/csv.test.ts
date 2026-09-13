@@ -280,12 +280,49 @@ describe("process", () => {
 
 		});
 
+		it("keeps quoted field whitespace by default", async () => {
+
+			expect(await collect(process<Row>("id,label\n1,\" alpha \"\n", { header: true }))).toEqual([
+				{ id: "1", label: " alpha " }
+			] satisfies readonly Row[]);
+
+		});
+
 		it("strips field whitespace on request", async () => {
 
 			const records = process<Row>(" id , label \n 1 , alpha \n", { header: true, trim: true });
 
 			expect(await collect(records)).toEqual([
 				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("strips quoted field whitespace on request", async () => {
+
+			const records = process<Row>("id,label\n1,\" alpha \"\n", { header: true, trim: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("emits blank fields as undefined on request", async () => {
+
+			const records = process<Row>("id,label\n1,  \n2,\"\"\n", { header: true, trim: true });
+
+			expect(await collect(records)).toStrictEqual([
+				{ id: "1", label: undefined },
+				{ id: "2", label: undefined }
+			] satisfies readonly Partial<Row>[]);
+
+		});
+
+		it("emits blank fields as empty values by default", async () => {
+
+			expect(await collect(process<Row>("id,label\n1,  \n", { header: true }))).toStrictEqual([
+				{ id: "1", label: "  " }
 			] satisfies readonly Row[]);
 
 		});

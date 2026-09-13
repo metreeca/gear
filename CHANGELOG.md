@@ -11,6 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `@metreeca/gear-csv` ignores a row stating its delimiters alone under `skip`, as a spreadsheet serialises a separator
   row that way, while keeping a row carrying at least one field value
+- `@metreeca/gear-csv` strips whitespace from quoted field values as well as unquoted ones under `trim`, keying a field
+  left blank once trimmed to `undefined` rather than to an empty string
 
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 

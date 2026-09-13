@@ -65,7 +65,9 @@ import type { Record } from "./index.js";
  * @param options.skip Ignores lines carrying no content, whether empty or stating delimiters alone, rather than
  *                     emitting them as records; a row carrying at least one field value is kept, however many of the
  *                     others are blank; defaults to `false`
- * @param options.trim Strips surrounding whitespace from field values; defaults to `false`
+ * @param options.trim Strips surrounding whitespace from field values and column labels alike, quoted values
+ *                     included, keying a field left blank once trimmed to `undefined` rather than to an empty string;
+ *                     defaults to `false`
  * @param options.flex Emits records whose field count doesn't match the header, leaving out missing fields and
  *                     discarding fields beyond the header, rather than skipping them; defaults to `false`
  * @param options.quote The character wrapping field values; defaults to `"` if unset or empty
