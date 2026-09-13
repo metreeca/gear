@@ -237,6 +237,37 @@ describe("process", () => {
 
 		});
 
+		it("skips blank rows on request", async () => { // a spreadsheet separator row is serialised as delimiters alone
+
+			const records = process<Row>("id,label\n1,alpha\n,\n2,beta\n", { header: true, skip: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "1", label: "alpha" },
+				{ id: "2", label: "beta" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("keeps a row stating any field on request", async () => {
+
+			const records = process<Row>("id,label\n,alpha\n1,\n", { header: true, skip: true });
+
+			expect(await collect(records)).toEqual([
+				{ id: "", label: "alpha" },
+				{ id: "1", label: "" }
+			] satisfies readonly Row[]);
+
+		});
+
+		it("emits blank rows by default", async () => {
+
+			expect(await collect(process<Row>("id,label\n,\n1,alpha\n", { header: true }))).toEqual([
+				{ id: "", label: "" },
+				{ id: "1", label: "alpha" }
+			] satisfies readonly Row[]);
+
+		});
+
 	});
 
 	describe("trim", () => {

@@ -62,7 +62,9 @@ import type { Record } from "./index.js";
  * @param options The parsing options
  * @param options.header Reads the first row as column labels, keying records by label rather than by positional
  *                       index; defaults to `false`
- * @param options.skip Ignores empty lines rather than emitting them as records; defaults to `false`
+ * @param options.skip Ignores lines carrying no content, whether empty or stating delimiters alone, rather than
+ *                     emitting them as records; a row carrying at least one field value is kept, however many of the
+ *                     others are blank; defaults to `false`
  * @param options.trim Strips surrounding whitespace from field values; defaults to `false`
  * @param options.flex Emits records whose field count doesn't match the header, leaving out missing fields and
  *                     discarding fields beyond the header, rather than skipping them; defaults to `false`

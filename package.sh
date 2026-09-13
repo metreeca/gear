@@ -14,7 +14,12 @@
 # limitations under the License.
 #
 
+# Link every external @metreeca dependency: a package left installed from the registry is loaded as a second copy of
+# the module the linked packages load, and a service keyed on a symbol it exports never matches the binding a consumer
+# registers
+
 npx link \
   ../Core \
   ../Tape \
-  ../Flow
+  ../Flow \
+  ../HTTP

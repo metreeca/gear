@@ -79,7 +79,12 @@ export async function* process<R extends Record = Record>(document: string | Res
 
 		bom: true,
 
+		// a line carrying no content is either empty or states its delimiters alone, as a spreadsheet
+		// serialises a separator row, and `skip` covers both
+
 		skipEmptyLines: skip === true,
+		skipRecordsWithEmptyValues: skip === true,
+
 		trim: trim === true,
 		relaxColumnCount: flex === true,
 
