@@ -13,6 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   row that way, while keeping a row carrying at least one field value
 - `@metreeca/gear-csv` strips whitespace from quoted field values as well as unquoted ones under `trim`, keying a field
   left blank once trimmed to `undefined` rather than to an empty string
+- `fetch` resolves the client from the execution enclosing the construction of the task rather than the consumption of
+  its feed, so that a task is created inside the execution binding the client and a missing binding is reported there
 
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 

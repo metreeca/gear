@@ -118,9 +118,9 @@ const logger = log(import.meta.url);
  */
 export function fetch(...middlewares: readonly Middleware[]): Task<string | URL | Request, Response> {
 
-	return requests => items((async function* () {
+	const fetch = service(createFetch);
 
-		const fetch = service(createFetch);
+	return requests => items((async function* () {
 
 		const send = createFetch(
 			monitor(logger),

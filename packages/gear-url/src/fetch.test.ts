@@ -191,9 +191,9 @@ describe("fetch", () => {
 
 			const { exchanges, stub } = transport(({ url }) => new Response(url.endsWith("/one") ? "alpha" : "beta"));
 
-			const task = fetch();
-
 			await executor(bind(createFetch, () => stub))(async () => {
+
+				const task = fetch(); // the client is resolved from the execution enclosing the construction
 
 				expect(await text(await collect(task(requests("https://example.com/one"))))).toBe("alpha");
 				expect(await text(await collect(task(requests("https://example.com/two"))))).toBe("beta");
@@ -358,7 +358,7 @@ describe("fetch", () => {
 
 		it("fails if no execution is running", async () => {
 
-			await expect(collect(fetch()(requests("https://example.com/")))).rejects.toThrow(/missing executor/);
+			expect(() => fetch()).toThrow(/missing executor/); // the client is resolved as the task is created
 
 		});
 
