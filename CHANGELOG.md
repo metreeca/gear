@@ -15,6 +15,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   left blank once trimmed to `undefined` rather than to an empty string
 - `fetch` resolves the client from the execution enclosing the construction of the task rather than the consumption of
   its feed, so that a task is created inside the execution binding the client and a missing binding is reported there
+- `@metreeca/gear-xml` renders the navigation, headers, footers, sidebars, controls and embedded objects a page is
+  framed by as nothing, leaving their text out of the rendering as well as out of headings, emphasis and the
+  frontmatter title, so that a page converts to the prose a reader is shown
+
+### Fixed
+
+- `@metreeca/gear-xml` takes a title drawing all of its text from framing as no title, so that a page is no longer
+  carried on with an empty frontmatter `title` or an empty `head`
 
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 

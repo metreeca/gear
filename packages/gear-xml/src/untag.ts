@@ -62,12 +62,26 @@ import { process } from "./untag.core.js";
  * - `em`, `i` — emphasis, laid out as strong emphasis is
  * - `script` — a fenced `json` block, if the type is `application/ld+json`, set off by a blank line; nothing
  *   otherwise
- * - `head`, `style`, `title` — nothing, the title being stated by the frontmatter instead
+ * - `head`, `title`, `style`, `noscript` — nothing, the title being stated by the frontmatter instead
+ * - `nav`, `header`, `footer`, `aside`, `menu`, `menuitem`, `toolbar` — nothing, whatever they hold, so that the
+ *   navigation, headers, footers and sidebars a page is framed by leave no text behind
+ * - `form`, `input`, `button`, `select`, `textarea`, `label`, `fieldset`, `legend` — nothing, whatever they hold, so
+ *   that the controls a page is operated through, the captions they carry among them, leave no text behind
+ * - `iframe`, `embed`, `object`, `applet`, `canvas`, `svg`, `audio`, `video`, `track`, `source` — nothing, whatever
+ *   they hold, so that the objects a page embeds leave no text behind
  *
  * Every other element contributes its content, the `html` and `body` a page is wrapped in among them, so that the
  * wrappers a page is built from leave no trace of their own. A link or an item is kept for the content a reader is
- * shown, the caption a graphic states inside its own markup counting for nothing, so that a decorative link leaves no
- * empty label behind.
+ * shown, the elements rendered as nothing counting for none of it, so that a decorative link leaves no empty label
+ * behind. The text of a heading, of emphasis and of the frontmatter title likewise leaves them out, so that the
+ * caption of a control or of a graphic doesn't reach the text through the prose enclosing it.
+ *
+ * > [!IMPORTANT]
+ * >
+ * > A page stating its content inside a form, as a filtered listing or a page-wide server-side form does, is thus
+ * > rendered as the content outside the form alone, possibly as nothing at all. Where a page is laid out that way,
+ * > select the region to convert with an {@link xpath} expression reaching inside the form, which {@link focus}
+ * > leaves out as framing too.
  *
  * Character data is rendered with runs of spaces, control characters and typographic separators, the no-break space
  * among them, collapsed to a single space, whatever the markup lays out; a run bordering a text node is kept, so that

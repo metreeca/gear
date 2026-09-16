@@ -18,8 +18,7 @@ import type { Markdown } from "@metreeca/core/strings";
 import { escape } from "@metreeca/core/strings";
 import type { AnyNode, Element, NodeWithChildren } from "domhandler";
 import { hasChildren, isComment, isTag, isText } from "domhandler";
-import { DomUtils } from "htmlparser2";
-import { name, normalize, titled } from "./index.core.js";
+import { name, normalize, text, title } from "./index.core.js";
 import { base } from "./xpath.core.js";
 
 
@@ -29,12 +28,26 @@ import { base } from "./xpath.core.js";
 const Indent = "  ";
 
 /**
- * The elements standing for none of the content a link or an item is read by.
+ * The elements rendered as nothing.
  *
- * Lists the elements rendered as nothing, alongside the scripts a JSON-LD block is drawn from, which state metadata
- * rather than the label a reader sees.
+ * Lists the framing, the controls and the embedded objects a reader is after no text from, alongside the document
+ * metadata the frontmatter states instead, so that none of the rendering, the text a heading, emphasis or the
+ * frontmatter title is read as, and the content a link or an item is kept for draws text from them.
+ *
+ * Kept apart from the `Ignored` set the page scoring and the title search are pruned with: a name listed there in
+ * error only shifts a heuristic score, while one listed here deletes text from the rendering, so the two answer to
+ * different risks.
  */
-const Unseen = new Set([ "head", "style", "title", "script" ]);
+const Dropped = new Set([
+
+	"head", "title", "style", "script", "noscript",
+	"nav", "header", "footer", "aside",
+	"menu", "menuitem", "toolbar",
+	"iframe", "embed", "object", "applet",
+	"form", "input", "button", "select", "textarea", "label", "fieldset", "legend",
+	"canvas", "svg", "audio", "video", "track", "source"
+
+]);
 
 
 /**
@@ -76,12 +89,12 @@ type Buffer = {
  */
 export function process(node: AnyNode): Markdown {
 
-	const title = titled(node);
+	const titled = title(node);
 	const url = located(node);
 	const body = format({ text: "", space: false, level: 0, item: false }, node).text.trim();
 
 	const front = [
-		...(title === undefined ? [] : [ `title: "${ escape(plain(title)) }"` ]),
+		...(titled === undefined ? [] : [ `title: "${ escape(plain(titled)) }"` ]),
 		...(url === undefined ? [] : [ `url: "${ escape(url.href) }"` ])
 	];
 
@@ -119,7 +132,7 @@ export function process(node: AnyNode): Markdown {
 	}
 
 	function tag(buffer: Buffer, element: Element): Buffer {
-		switch ( element.name.toLowerCase() ) {
+		switch ( name(element) ) {
 
 			case "h1":
 
@@ -190,15 +203,9 @@ export function process(node: AnyNode): Markdown {
 					? block(buffer, buffer => append(buffer, "```json\n", plain(element), "\n```"))
 					: buffer;
 
-			case "head":
-			case "style":
-			case "title": // stated by the frontmatter instead
+			default: // the framing, the controls and the embedded objects a reader is after no text from
 
-				return buffer;
-
-			default:
-
-				return children(buffer, element);
+				return Dropped.has(name(element)) ? buffer : children(buffer, element);
 
 		}
 	}
@@ -313,15 +320,15 @@ export function process(node: AnyNode): Markdown {
 
 	function emphasis(buffer: Buffer, element: Element, marker: string): Buffer {
 
-		const text = normalize(DomUtils.textContent(element));
-		const content = text.trim();
+		const spaced = normalize(text(element, Dropped));
+		const content = spaced.trim();
 
 		// whitespace bordering the content is written outside the markers, as CommonMark reads no emphasis from
 		// markers padded with it; emphasis carrying no text leaves no markers behind, but stands for the space it holds
 
-		return content === "" ? { ...buffer, space: buffer.space || text.length > 0 }
+		return content === "" ? { ...buffer, space: buffer.space || spaced.length > 0 }
 			: append(buffer,
-				text.startsWith(" ") ? " " : "", marker, content, marker, text.endsWith(" ") ? " " : ""
+				spaced.startsWith(" ") ? " " : "", marker, content, marker, spaced.endsWith(" ") ? " " : ""
 			);
 
 	}
@@ -331,13 +338,16 @@ export function process(node: AnyNode): Markdown {
 			return isText(node) ? node.data.trim() !== ""
 				: !isTag(node) ? false
 					: name(node) === "img" ? true
-						: Unseen.has(name(node)) ? false
+						: Dropped.has(name(node)) ? false
 							: node.children.some(shown);
 		});
 	}
 
+	// a heading, emphasis and the frontmatter title are read as the text left once the dropped elements are taken out,
+	// so that the caption of a control doesn't reach them through the prose enclosing it
+
 	function plain(element: Element): string {
-		return normalize(DomUtils.textContent(element).trim());
+		return normalize(text(element, Dropped).trim());
 	}
 
 	function attribute(element: Element, name: string): string {

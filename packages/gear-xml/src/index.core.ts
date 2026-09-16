@@ -15,9 +15,8 @@
  */
 
 import { type IRI, isIRI } from "@metreeca/core/resource";
-import type { AnyNode, Element } from "domhandler";
-import { hasChildren, isTag } from "domhandler";
-import { DomUtils } from "htmlparser2";
+import type { AnyNode, Element, NodeWithChildren } from "domhandler";
+import { hasChildren, isTag, isText } from "domhandler";
 
 
 /**
@@ -71,6 +70,32 @@ export function isBase(value: unknown): value is IRI {
 	return isIRI(value, "hierarchical");
 }
 
+
+/**
+ * Finds the title of a page.
+ *
+ * @param node The root of the tree to search; only its descendants are considered, and the framing a reader is not
+ *             after is left out, so that the caption of an embedded object is not mistaken for the title
+ *
+ * @returns The first title stated by the tree rooted at `node`; `undefined` if none is stated or the first one draws
+ *          no text of its own, whatever framing it wraps, so that no empty heading is handed back
+ */
+export function title(node: AnyNode): undefined | Element {
+
+	const [ heading ] = stated(hasChildren(node) ? node.children : []);
+
+	return heading !== undefined && text(heading, Ignored).trim() !== "" ? heading : undefined;
+
+
+	function stated(nodes: readonly AnyNode[]): readonly Element[] {
+		return nodes.filter(isTag).flatMap(element => name(element) === "title" ? [ element ] // states its own
+			: Ignored.has(name(element)) ? [] // framing states captions a reader is not after
+				: stated(element.children)
+		);
+	}
+
+}
+
 /**
  * Reads the name of an element as the tree carries it.
  *
@@ -83,6 +108,25 @@ export function name(element: Element): string {
 }
 
 /**
+ * Reads the text of a node as the tree carries it.
+ *
+ * @param node     The node to read; only its descendants are matched against `excluded`, so that the text of an
+ *                 excluded element is read where it is passed in directly
+ * @param excluded The lowercase names of the elements whose text is left out, however deeply they sit inside the
+ *                 content, so that the framing, the controls and the embedded objects of a page leave no text behind
+ *
+ * @returns The text held by the descendants of `node`, with whitespace left as the markup lays it out
+ */
+export function text(node: NodeWithChildren, excluded: ReadonlySet<string>): string {
+	return node.children.map(child => isText(child) ? child.data
+		: isTag(child) && excluded.has(name(child)) ? ""
+			: hasChildren(child) ? text(child, excluded)
+				: "" // comments, doctypes and processing instructions carry no text
+	).join("");
+}
+
+
+/**
  * Collapses the whitespace character data is laid out with.
  *
  * @param text The text to collapse
@@ -91,31 +135,4 @@ export function name(element: Element): string {
  */
 export function normalize(text: string): string {
 	return text.replace(Space, " ");
-}
-
-/**
- * Draws the title a tree states.
- *
- * The framing a reader is not after is left out, so that the caption of an embedded object is not mistaken for the
- * title of the page.
- *
- * @param node The root of the tree to search; only its descendants are considered
- *
- * @returns The first title stated by the tree rooted at `node`; `undefined` if none is stated or the first one carries
- *          no text
- */
-export function titled(node: AnyNode): undefined | Element {
-
-	const [ title ] = stated(hasChildren(node) ? node.children : []);
-
-	return title !== undefined && DomUtils.textContent(title).trim() !== "" ? title : undefined;
-
-
-	function stated(nodes: readonly AnyNode[]): readonly Element[] {
-		return nodes.filter(isTag).flatMap(element => name(element) === "title" ? [ element ] // states its own
-			: Ignored.has(name(element)) ? [] // framing states captions a reader is not after
-				: stated(element.children)
-		);
-	}
-
 }

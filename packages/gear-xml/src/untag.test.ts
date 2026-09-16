@@ -398,6 +398,81 @@ describe("process", () => {
 
 		});
 
+		it("drops a form and the controls and captions it holds", async () => {
+
+			expect(process(tree(`<p>alpha</p><form><label>Name</label><input><p>beta</p></form>`)))
+				.toBe("alpha");
+
+		});
+
+		it("drops the navigation, headers, footers and sidebars a page is framed by", async () => {
+
+			expect(process(tree(
+				`<nav>alpha</nav><header>beta</header><p>gamma</p><aside>delta</aside><footer>epsilon</footer>`
+			)))
+				.toBe("gamma");
+
+		});
+
+		it("drops embedded objects", async () => {
+
+			expect(process(tree(`<p>alpha</p><iframe>beta</iframe><object>gamma</object><svg><text>delta</text></svg>`)))
+				.toBe("alpha");
+
+		});
+
+		it("leaves the text of a dropped element out of a heading", async () => {
+
+			expect(process(tree(`<h1>Alpha <label>Beta</label></h1>`)))
+				.toBe("# Alpha");
+
+		});
+
+		it("leaves the text of a dropped element out of emphasis", async () => {
+
+			expect(process(tree(`<p><strong>Alpha <svg><title>Beta</title></svg></strong></p>`)))
+				.toBe("**Alpha**");
+
+		});
+
+		it("leaves the text of a dropped element out of the frontmatter title", async () => {
+
+			// html holds no element inside a title, an xml tree does
+
+			expect(process(parseDocument(`<title>Alpha <label>Beta</label></title><p>gamma</p>`, { xmlMode: true })))
+				.toBe(`---\ntitle: "Alpha"\n---\n\ngamma`);
+
+		});
+
+		it("drops a link labelled by a dropped element alone", async () => {
+
+			expect(process(tree(`<p><a href="/alpha"><button>Alpha</button></a>beta</p>`)))
+				.toBe("beta");
+
+		});
+
+		it("drops an item labelled by a dropped element alone", async () => {
+
+			expect(process(tree(`<ul><li><label>alpha</label></li><li>beta</li></ul>`)))
+				.toBe("- beta");
+
+		});
+
+		it("renders a page carrying a form with a randomised caption as stable text", async () => {
+
+			// a registration form serving a honeypot label randomised on every request must leave the text untouched
+
+			function page(caption: string): string {
+				return `<main><h1>Alpha</h1><p>beta</p>`
+					+ `<form><ul><li><label>${ caption }</label><div><input name="input_14"></div>`
+					+ `<div>Ce champ n'est utilisé qu'à des fins de validation.</div></li></ul></form></main>`;
+			}
+
+			expect(process(tree(page("Name")))).toBe("# Alpha\n\nbeta");
+			expect(process(tree(page("Email")))).toBe(process(tree(page("Name"))));
+
+		});
+
 	});
 
 	describe("frontmatter", () => {
@@ -420,6 +495,15 @@ describe("process", () => {
 
 			expect(process(tree(`<html><head><title>  </title></head><body><p>alpha</p></body></html>`)))
 				.toBe("alpha");
+
+		});
+
+		it("renders the content on its own where the title carries only the text of a dropped element", async () => {
+
+			// html holds no element inside a title, an xml tree does
+
+			expect(process(parseDocument(`<title><label>Alpha</label></title><p>beta</p>`, { xmlMode: true })))
+				.toBe("beta");
 
 		});
 

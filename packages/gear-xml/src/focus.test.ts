@@ -323,6 +323,18 @@ describe("process", () => {
 
 		});
 
+		it("states no head where the title carries only the text of framing", async () => {
+
+			// html holds no element inside a title, an xml tree does
+
+			expect(markup(process(parseDocument(
+				`<html><head><title><label>Alpha</label></title></head><body><main><p>beta</p></main></body></html>`,
+				{ xmlMode: true }
+			))))
+				.toBe(`<html><body><main><p>beta</p></main></body></html>`);
+
+		});
+
 		it("leaves out a title held by framing", async () => {
 
 			expect(markup(process(tree(`<svg><title>Alpha</title></svg><main><p>beta</p></main>`))))

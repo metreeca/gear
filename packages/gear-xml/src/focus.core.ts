@@ -17,7 +17,7 @@
 import type { AnyNode } from "domhandler";
 import { cloneNode, Document, Element, hasChildren, isTag, isText } from "domhandler";
 import { DomUtils } from "htmlparser2";
-import { Ignored, name, normalize, titled } from "./index.core.js";
+import { Ignored, name, normalize, title } from "./index.core.js";
 
 
 /**
@@ -95,7 +95,7 @@ export function process(node: AnyNode): undefined | Document {
 	const nodes = hasChildren(node) ? node.children : [];
 	const regions = marked(nodes) ?? articles(nodes) ?? dense(nodes);
 
-	return regions === undefined ? undefined : extract(regions, framed(nodes), titled(node));
+	return regions === undefined ? undefined : extract(regions, framed(nodes), title(node));
 
 
 	/**
