@@ -18,6 +18,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `@metreeca/gear-xml` renders the navigation, headers, footers, sidebars, controls and embedded objects a page is
   framed by as nothing, leaving their text out of the rendering as well as out of headings, emphasis and the
   frontmatter title, so that a page converts to the prose a reader is shown
+- Realign to the renamed `@metreeca/core` values module, raising the minimum supported version: `immutable` is imported
+  from `@metreeca/core/values` in place of `@metreeca/core/structures`
 
 ### Fixed
 

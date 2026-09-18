@@ -15,7 +15,7 @@
  */
 
 import type { Bucket } from "@metreeca/core/bucket";
-import { immutable } from "@metreeca/core/structures";
+import { immutable } from "@metreeca/core/values";
 import { createHash, randomUUID } from "node:crypto";
 import { openAsBlob, type Stats } from "node:fs";
 import { mkdir, readdir, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
