@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear-json",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "JSON processing tasks for @metreeca/gear.",
   "keywords": [
     "typescript",
