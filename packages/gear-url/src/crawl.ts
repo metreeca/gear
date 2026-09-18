@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-import type { Optional } from "@metreeca/core";
+import type { Optional, URLLike } from "@metreeca/core";
 import type { Awaitable, Awaitables } from "@metreeca/core/async";
 import type { Task } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
-import type { URLLike } from "./index.js";
 
 
 /**
@@ -46,8 +45,8 @@ export type Source<T> =
  *
  * Crawling navigates a graph of URLs without retrieving what they stand for: retrieving a URL belongs to the pipe
  * `walker` is built from and deriving results from the crawled URLs to the tasks downstream. Seeds and links are
- * stated as {@link URLLike} values, but reach `walker` and the feed as parsed objects, each one the crawl's own and
- * safe to be altered.
+ * stated as {@link URLLike} values, strings and {@link !URL URL} objects alike, but reach `walker` and the feed as
+ * parsed objects, each one the crawl's own and safe to be altered.
  *
  * > [!NOTE]
  * >
@@ -108,8 +107,8 @@ export function crawl(
  * Retrieval is stated as a task over a whole level rather than as a step per URL, so how many URLs are retrieved at a
  * time is the consumer's to state with the tasks already at hand: a forked `feeder` retrieves several at once, an
  * unforked one retrieves them in turn. A URL is left out of the harvest by emitting nothing for it. Seeds and links
- * are stated as {@link URLLike} values, but reach `feeder` as parsed objects, each one the crawl's own and safe to be
- * altered.
+ * are stated as {@link URLLike} values, strings and {@link !URL URL} objects alike, but reach `feeder` as parsed
+ * objects, each one the crawl's own and safe to be altered.
  *
  * > [!NOTE]
  * >

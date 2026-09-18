@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `@metreeca/gear-xml` takes a title drawing all of its text from framing as no title, so that a page is no longer
   carried on with an empty frontmatter `title` or an empty `head`
 
+### Removed
+
+- `@metreeca/gear-url` no longer exports `URLLike`: the seed and link type `crawl` takes is the one `@metreeca/core`
+  exports, which a consumer naming the type imports from there
+
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 
 ### Added
