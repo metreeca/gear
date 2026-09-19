@@ -18,11 +18,11 @@
     "setup": "npm ci && sh package.sh",
     "build": "npm run build --workspaces && rm -rf docs && npx typedoc",
     "check": "npm run check --workspaces",
-    "proof": "npm run build && npx five-server docs --open --watch=false"
+    "proof": "npm run build && npx wds --root-dir docs --open"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
-    "five-server": "^0.4.5",
+    "@web/dev-server": "^1.0.0",
     "typedoc": "^0.28.18",
     "vitest": "^4.0.13"
   },
