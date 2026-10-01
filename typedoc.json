@@ -3,7 +3,7 @@
     "packages/*"
   ],
   "entryPointStrategy": "packages",
-  "name": "Metreeca Gear",
+  "name": "@metreeca/gear",
   "out": "docs",
   "readme": "README.md",
   "hostedBaseUrl": "https://metreeca.github.io/gear/",
