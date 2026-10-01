@@ -9,28 +9,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `@metreeca/gear-csv` ignores a row stating its delimiters alone under `skip`, as a spreadsheet serialises a separator
-  row that way, while keeping a row carrying at least one field value
-- `@metreeca/gear-csv` strips whitespace from quoted field values as well as unquoted ones under `trim`, keying a field
-  left blank once trimmed to `undefined` rather than to an empty string
 - `fetch` resolves the client from the execution enclosing the construction of the task rather than the consumption of
   its feed, so that a task is created inside the execution binding the client and a missing binding is reported there
-- `@metreeca/gear-xml` renders the navigation, headers, footers, sidebars, controls and embedded objects a page is
-  framed by as nothing, leaving their text out of the rendering as well as out of headings, emphasis and the
-  frontmatter title, so that a page converts to the prose a reader is shown
 - Realign to the renamed `@metreeca/core` values module, raising the minimum supported version: `immutable` is imported
   from `@metreeca/core/values` in place of `@metreeca/core/structures`
-
-### Fixed
-
-- `@metreeca/gear-xml` takes a title drawing all of its text from framing as no title, so that a page is no longer
-  carried on with an empty frontmatter `title` or an empty `head`
 
 ### Removed
 
 - `@metreeca/gear-url` migrated to [@metreeca/pipe](https://github.com/metreeca/pipe) as `@metreeca/pipe-url`, which
   no longer exports `URLLike`: the seed and link type `crawl` takes is the one `@metreeca/core` exports, which a
   consumer naming the type imports from there
+- `@metreeca/gear-csv`, `@metreeca/gear-json` and `@metreeca/gear-xml` migrated to
+  [@metreeca/mime](https://github.com/metreeca/mime) as `@metreeca/mime-csv`, `@metreeca/mime-json` and
+  `@metreeca/mime-xml`
 
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 

@@ -34,17 +34,8 @@ self-contained leaves, each pulling in only the libraries its own input type nee
 | Package               | Description                               |
 |-----------------------|-------------------------------------------|
 | [@metreeca/gear]      | Job execution runtime and shared services |
-| [@metreeca/gear-json] | JSON processing tasks                     |
-| [@metreeca/gear-xml]  | XML and HTML processing tasks             |
-| [@metreeca/gear-csv]  | CSV processing tasks                      |
 
 [@metreeca/gear]: https://metreeca.github.io/gear/modules/_metreeca_gear.html
-
-[@metreeca/gear-json]: https://metreeca.github.io/gear/modules/_metreeca_gear-json.html
-
-[@metreeca/gear-xml]: https://metreeca.github.io/gear/modules/_metreeca_gear-xml.html
-
-[@metreeca/gear-csv]: https://metreeca.github.io/gear/modules/_metreeca_gear-csv.html
 
 # Usage
 
@@ -59,7 +50,7 @@ tasks provided by the input packages:
 ```ts
 import { bind, executor, service } from "@metreeca/gear";
 import { createDotVault, createVault } from "@metreeca/gear/vault";
-import { csv } from "@metreeca/gear-csv";
+import { csv } from "@metreeca/mime-csv";
 import { fetch } from "@metreeca/pipe-url";
 import { pipe } from "@metreeca/flow";
 import { items } from "@metreeca/flow/feeds";
