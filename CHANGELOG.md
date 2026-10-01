@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0](https://github.com/metreeca/gear/compare/v0.2.0...HEAD)
 
+### Added
+
+- `@metreeca/gear-gcp` — Google Cloud service implementations
+
 ### Changed
 
 - `fetch` resolves the client from the execution enclosing the construction of the task rather than the consumption of

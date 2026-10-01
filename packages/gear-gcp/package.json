@@ -1,12 +1,13 @@
 {
-  "name": "@metreeca/gear",
+  "name": "@metreeca/gear-gcp",
   "version": "0.3.0",
-  "description": "Job executor and shared services for @metreeca/gear.",
+  "description": "Google Cloud service implementations for @metreeca/gear.",
   "keywords": [
     "typescript",
     "pipeline",
     "etl",
-    "extraction"
+    "gcp",
+    "google-cloud"
   ],
   "homepage": "https://metreeca.github.io/gear/",
   "bugs": {
@@ -22,7 +23,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/metreeca/gear.git",
-    "directory": "packages/gear"
+    "directory": "packages/gear-gcp"
   },
   "type": "module",
   "sideEffects": false,
@@ -30,18 +31,6 @@
     ".": {
       "@metreeca/source": "./src/index.ts",
       "default": "./dist/index.js"
-    },
-    "./space": {
-      "@metreeca/source": "./src/space/index.ts",
-      "default": "./dist/space/index.js"
-    },
-    "./vault": {
-      "@metreeca/source": "./src/vault/index.ts",
-      "default": "./dist/vault/index.js"
-    },
-    "./cache": {
-      "@metreeca/source": "./src/cache/index.ts",
-      "default": "./dist/cache/index.js"
     }
   },
   "files": [
@@ -58,8 +47,7 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/core": "^0.10.0",
-    "@metreeca/tape": "^0.10.1"
+    "@metreeca/gear": "^0.3.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

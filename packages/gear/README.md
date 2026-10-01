@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@metreeca/gear)](https://www.npmjs.com/package/@metreeca/gear)
 
-Job execution runtime and shared services for [@metreeca/gear](https://github.com/metreeca/gear).
+Job executor and shared services for [@metreeca/gear](https://github.com/metreeca/gear).
 
 A consumer sets up an executor, binding the services a job relies on to the implementations chosen for the run. The
 executor runs the job, whose tasks resolve each service through a locator, naming it by its default factory rather than

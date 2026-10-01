@@ -1,5 +1,5 @@
 /*
- * Copyright © 2020-2026 EC2U Alliance
+ * Copyright © 2026 Metreeca srl
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 /**
  * Job executor and service locator.
  *
- * Provides the runtime for executing jobs, together with the shared services they rely on.
+ * Provides the executor that runs jobs, together with the shared services they rely on.
  *
  * Service location keeps a job independent of the facilities it uses: a job names a facility by its default
  * {@link Service service} rather than importing a concrete implementation, and a binding substitutes another one for
