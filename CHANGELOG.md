@@ -28,8 +28,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- `@metreeca/gear-url` no longer exports `URLLike`: the seed and link type `crawl` takes is the one `@metreeca/core`
-  exports, which a consumer naming the type imports from there
+- `@metreeca/gear-url` migrated to [@metreeca/pipe](https://github.com/metreeca/pipe) as `@metreeca/pipe-url`, which
+  no longer exports `URLLike`: the seed and link type `crawl` takes is the one `@metreeca/core` exports, which a
+  consumer naming the type imports from there
 
 ## [0.2.0](https://github.com/metreeca/gear/compare/v0.1.1...v0.2.0) - 2026-09-09
 
