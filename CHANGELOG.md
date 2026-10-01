@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0](https://github.com/metreeca/gear/compare/v0.2.0...HEAD)
+## [Unreleased](https://github.com/metreeca/gear/compare/v0.3.0...HEAD)
+
+## [0.3.0](https://github.com/metreeca/gear/compare/v0.2.0...v0.3.0) - 2026-10-01
 
 ### Added
 
@@ -13,10 +15,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `fetch` resolves the client from the execution enclosing the construction of the task rather than the consumption of
-  its feed, so that a task is created inside the execution binding the client and a missing binding is reported there
-- Realign to the renamed `@metreeca/core` values module, raising the minimum supported version: `immutable` is imported
-  from `@metreeca/core/values` in place of `@metreeca/core/structures`
 - requires `@metreeca/core` `^0.12.0` and `@metreeca/tape` `^0.11.0`
 
 ### Removed
