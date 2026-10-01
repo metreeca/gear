@@ -17,6 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its feed, so that a task is created inside the execution binding the client and a missing binding is reported there
 - Realign to the renamed `@metreeca/core` values module, raising the minimum supported version: `immutable` is imported
   from `@metreeca/core/values` in place of `@metreeca/core/structures`
+- requires `@metreeca/core` `^0.12.0` and `@metreeca/tape` `^0.11.0`
 
 ### Removed
 
