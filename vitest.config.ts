@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-import { existsSync } from "fs";
-import { join } from "path";
+import { symlinks } from "@metreeca/rack/vite";
 import { defineConfig } from "vitest/config";
 
-const packages = join(import.meta.dirname, "packages");
-
 export default defineConfig({
+
+	plugins: [
+		symlinks({ conditions: "@metreeca/source" })
+	],
 
 	test: {
 
@@ -34,58 +35,6 @@ export default defineConfig({
 			tsconfig: "tsconfig.json"
 		}
 
-	},
-
-	plugins: [{
-
-		name: "gear-resolver",
-		enforce: "pre",
-
-		/**
-		 * Resolves `@metreeca/gear*` workspace imports to TypeScript source for build-free testing.
-		 *
-		 * - `@metreeca/gear-pkg` → `packages/gear-pkg/src/index.ts`
-		 * - `@metreeca/gear-pkg/module` → `packages/gear-pkg/src/module.ts` or `packages/gear-pkg/src/module/index.ts`
-		 *
-		 * @param id - The module specifier to resolve
-		 *
-		 * @returns The resolved file path, or `null` if the specifier does not match
-		 */
-		resolveId(id: string) {
-
-			const bare = id.match(/^@metreeca\/(gear[^/]*)$/);
-
-			if ( bare ) { // bare package import
-
-				const index = join(packages, bare[1], "src", "index.ts");
-
-				return existsSync(index) ? index : null;
-
-			} else { // subpath import
-
-				const module = id.match(/^@metreeca\/(gear[^/]*)\/(.+)$/);
-
-				if ( module ) {
-
-					const source = join(packages, module[1], "src");
-
-					const named = join(source, `${module[2]}.ts`);
-					const index = join(source, module[2], "index.ts");
-
-					return existsSync(named) ? named
-						: existsSync(index) ? index
-							: null;
-
-				} else {
-
-					return null;
-
-				}
-
-			}
-
-		}
-
-	}]
+	}
 
 });

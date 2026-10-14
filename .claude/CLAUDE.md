@@ -65,10 +65,15 @@ const parameters = lazy(async () => parseEnv(await readFile(resolve(service(getP
 
 # Testing
 
-The root `vitest.config.ts` aliases all workspace `@metreeca/gear*` packages to their TypeScript source via regex, so
-vitest transpiles directly from `src/` without requiring a prior build step. The resolver maps each `@metreeca/gear*`
-specifier to `packages/<package>/src`; the aliases are convention-based and require no manual updates when adding
-packages or subpath exports.
+The root `vitest.config.ts` resolves imports of symlinked `@metreeca/*` packages, both workspace packages and siblings
+linked by `npm run setup`, to the TypeScript source their `@metreeca/source` export entries declare, so tests run
+against `src/` without a prior build. Packages installed from the registry keep resolving to their published `dist`.
+An export entry lacking the condition falls back to `dist` as well, and tests then see that package as last built.
+
+> [!CAUTION]
+> **NEVER** enable `@metreeca/source` through vitest `resolve.conditions`. Published manifests carry the condition
+> while their packages ship no `src/`, and Vite does not fall back to `default` on a missing target, so a global
+> condition breaks every package installed from the registry that declares it, as happens under `npm ci` in CI.
 
 Assertions on a service instance are made **inside** the job, while the execution is still running. An execution
 releases every instance it constructed as it ends, and a Vitest mock is disposable: releasing one restores it, wiping
