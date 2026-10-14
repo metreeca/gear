@@ -1,6 +1,6 @@
 {
   "name": "@metreeca/gear-gcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Google Cloud service implementations for @metreeca/gear.",
   "keywords": [
     "typescript",
