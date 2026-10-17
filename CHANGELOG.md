@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/compare/v0.3.1...HEAD)
 
+### Changed
+
+- Upgrade `@metreeca/core` to `^0.13.0`
+
 ## [0.3.1](https://github.com/metreeca/gear/compare/v0.3.0...v0.3.1) - 2026-10-14
 
 ### Changed
