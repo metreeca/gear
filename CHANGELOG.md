@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `getResource()` in `@metreeca/gear/space` reads the text of resource files shipped beside the calling module
+- `gcp` in `@metreeca/gear-gcp` exposes the Google Cloud environment settings: runtime residency, port and project
+- `@metreeca/gear-gcp/secrets` retrieves vault parameters from the Google Cloud Secret Manager of the current project
 
 ### Changed
 

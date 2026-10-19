@@ -31,6 +31,10 @@
     ".": {
       "@metreeca/source": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./secrets": {
+      "@metreeca/source": "./src/secrets.ts",
+      "default": "./dist/secrets.js"
     }
   },
   "files": [
@@ -47,7 +51,11 @@
     "check": "npx vitest --typecheck run"
   },
   "dependencies": {
-    "@metreeca/gear": "^0.4.0"
+    "@google-cloud/secret-manager": "^7.2.0",
+    "@metreeca/core": "^0.13.0",
+    "@metreeca/gear": "^0.4.0",
+    "gcp-metadata": "^9.2.1",
+    "google-auth-library": "^11.3.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
