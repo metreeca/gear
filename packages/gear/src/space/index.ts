@@ -17,19 +17,31 @@
 /**
  * Working space access.
  *
- * Gives a job the surroundings it works within, such as the base paths its file access is anchored to, without reading
- * them directly from the process.
+ * Gives a job the surroundings it works within, without reading them directly from the process: the base paths its
+ * file access is anchored to, and the prompts, templates and other resource files shipped beside its modules.
  *
  * @module
  */
 
+import type { URLLike } from "@metreeca/core";
+import { isString, memo } from "@metreeca/core";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
+
 
 /**
  * The name of the file marking the base folder of a package.
  */
 const Manifest = "package.json";
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * The process-wide cache of resource contents, keyed by absolute URL.
+ */
+const resources = memo((href: string) => readFile(new URL(href), "utf-8"));
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,5 +87,29 @@ export function getPackage(path: string): string {
 		return base;
 
 	}
+
+}
+
+
+/**
+ * Retrieves the text of a resource file.
+ *
+ * Reads a file shipped beside the calling module, such as a prompt or template, wherever the code is launched from.
+ *
+ * @param url The URL of the file, or a path resolved against `base`; a path made only of extensions, such as `.sys.md`,
+ *            replaces the trailing extensions of `base`, so that `module.js` can name its companion `module.sys.md`
+ * @param base The URL `url` is resolved against, typically the URL of the calling module, as given by `import.meta.url`
+ *
+ * @returns A promise resolving to the UTF-8 text of the file, rejected if the file can't be read
+ *
+ * @throws {@link !TypeError TypeError} If `url` is a path and `base` is missing or isn't a valid URL
+ */
+export function getResource(url: URLLike, base?: URLLike): Promise<string> {
+
+	const target = base && isString(url) && /^(\.[a-z0-9]+)+$/i.test(url)
+		? new URL(new URL(base).href.replace(/(\.[a-z0-9]+)+$/i, url), base)
+		: new URL(url, base);
+
+	return resources(target.href);
 
 }

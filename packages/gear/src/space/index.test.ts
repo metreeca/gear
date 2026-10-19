@@ -15,12 +15,13 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { bind, executor, service } from "../index.js";
-import { getPackage, getPath } from "./index.js";
+import { getPackage, getPath, getResource } from "./index.js";
 
 
 describe("getPath", () => {
@@ -84,5 +85,67 @@ describe("getPackage", () => {
 		}
 
 	});
+
+});
+
+describe("getResource", () => {
+
+	async function withFolder(test: (folder: string) => Promise<void>): Promise<void> {
+
+		const folder = await mkdtemp(join(tmpdir(), "gear-space-"));
+
+		try {
+
+			await test(folder);
+
+		} finally {
+
+			await rm(folder, { recursive: true, force: true });
+
+		}
+
+	}
+
+	it("reads a file as UTF-8 text", async () => withFolder(async folder => {
+
+		await writeFile(join(folder, "text.txt"), "àèì", "utf-8");
+
+		expect(await getResource(pathToFileURL(join(folder, "text.txt")))).toBe("àèì");
+
+	}));
+
+	it("resolves a relative path against a base", async () => withFolder(async folder => {
+
+		await writeFile(join(folder, "sibling.txt"), "sibling", "utf-8");
+
+		expect(await getResource("sibling.txt", pathToFileURL(join(folder, "module.js")))).toBe("sibling");
+
+	}));
+
+	it("replaces the extensions of the base with an extension path", async () => withFolder(async folder => {
+
+		await writeFile(join(folder, "module.sys.md"), "prompt", "utf-8");
+
+		expect(await getResource(".sys.md", pathToFileURL(join(folder, "module.test.js")).href)).toBe("prompt");
+
+	}));
+
+	it("caches contents across reads", async () => withFolder(async folder => {
+
+		const url = pathToFileURL(join(folder, "cached.txt"));
+
+		await writeFile(url, "before", "utf-8");
+		await getResource(url);
+		await writeFile(url, "after", "utf-8");
+
+		expect(await getResource(url)).toBe("before");
+
+	}));
+
+	it("rejects a missing file", async () => withFolder(async folder => {
+
+		await expect(getResource(pathToFileURL(join(folder, "missing.txt")))).rejects.toThrow();
+
+	}));
 
 });

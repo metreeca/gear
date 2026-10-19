@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0](https://github.com/metreeca/gear/compare/v0.3.1...HEAD)
 
+### Added
+
+- `getResource()` in `@metreeca/gear/space` reads the text of resource files shipped beside the calling module
+
 ### Changed
 
 - Upgrade `@metreeca/core` to `^0.13.0`
