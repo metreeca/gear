@@ -28,13 +28,13 @@ runs under the same executor and draws on the same services.
 | **@metreeca/gear**     | Job executor and shared services for data pipelines                       |
 | [**@metreeca/pipe**][] | Ready-made tasks for retrieving and persisting data from external sources |
 | [**@metreeca/mime**][] | Ready-made tasks for parsing and serialising content by media type        |
-| [**@metreeca/muse**][] | Ready-made tasks and shared services for AI jobs                          |
+| [**@metreeca/llms**][] | Ready-made tasks and shared services for AI jobs                          |
 
 [**@metreeca/pipe**]: https://github.com/metreeca/pipe
 
 [**@metreeca/mime**]: https://github.com/metreeca/mime
 
-[**@metreeca/muse**]: https://github.com/metreeca/muse
+[**@metreeca/llms**]: https://github.com/metreeca/llms
 
 # Installation
 

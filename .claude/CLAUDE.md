@@ -13,7 +13,7 @@
 
 `@metreeca/gear` is a standalone, general-purpose monorepo collecting the job executor and shared services for data
 pipelines, along with the platform service packages, each sitting directly under `packages/` (for example
-`packages/gear/`). It acts as the hub of a tooling ecosystem: `@metreeca/pipe`, `@metreeca/mime` and `@metreeca/muse`
+`packages/gear/`). It acts as the hub of a tooling ecosystem: `@metreeca/pipe`, `@metreeca/mime` and `@metreeca/llms`
 contribute the ready-made tasks and run under its executor.
 
 # References
