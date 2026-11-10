@@ -36,7 +36,7 @@
  */
 
 import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
-import { error } from "@metreeca/core";
+import { error, isError } from "@metreeca/core";
 import { Vault } from "@metreeca/gear/vault";
 
 
@@ -111,7 +111,7 @@ export async function secret(key: string): Promise<string> {
 
 		} else {
 
-			throw error(`failed to access secret <${key}>: ${e}`);
+			throw error(`failed to access secret <${key}>: ${isError(e) ? e.message : e}`);
 
 		}
 

@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/compare/v0.4.0...HEAD)
 
+### Fixed
+
+- `@metreeca/gear-gcp/secrets` access failures quote the cause message alone, without its error name prefix
+
 ## [0.4.0](https://github.com/metreeca/gear/compare/v0.3.1...v0.4.0) - 2026-10-19
 
 ### Added
