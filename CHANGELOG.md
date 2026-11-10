@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/gear/compare/v0.4.0...HEAD)
 
+### Added
+
+- `executor()` terminates the process on uncaught failures with their message and stack trace only, unless the
+  application already handles uncaught exceptions
+
 ### Fixed
 
 - `@metreeca/gear-gcp/secrets` access failures quote the cause message alone, without its error name prefix

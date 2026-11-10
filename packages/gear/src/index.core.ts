@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+import { writeSync } from "node:fs";
+import { inspect } from "node:util";
+
+
 /**
  * Checks if a value supports synchronous disposal.
  *
@@ -57,5 +61,23 @@ export function isAsyncDisposable(value: unknown): value is AsyncDisposable {
 	return value instanceof Object
 		&& Symbol.asyncDispose in value
 		&& typeof value[Symbol.asyncDispose] === "function";
+
+}
+
+
+/**
+ * Terminates the process on an uncaught exception.
+ *
+ * Prints the exception and its stack trace to the standard error stream, then exits with the status Node assigns to
+ * uncaught exceptions. The source excerpt Node prints by default is left out, as it points at the helper that threw
+ * rather than at the actual failure. The output is written synchronously, so the exit never truncates it.
+ *
+ * @param error The uncaught exception
+ */
+export function terminate(error: unknown): never {
+
+	writeSync(process.stderr.fd, `${inspect(error)}\n`);
+
+	return process.exit(1);
 
 }

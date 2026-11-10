@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-import { describe, expect, it, vi } from "vitest";
-import { isAsyncDisposable, isDisposable } from "./index.core.js";
+import { writeSync } from "node:fs";
+import { inspect } from "node:util";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { isAsyncDisposable, isDisposable, terminate } from "./index.core.js";
 import type { Service } from "./index.js";
 import { bind, executor, service } from "./index.js";
+
+
+vi.mock("node:fs", async importOriginal => ({ ...await importOriginal<typeof import("node:fs")>(), writeSync: vi.fn() }));
 
 
 interface Store {
@@ -76,6 +81,46 @@ describe("executor", () => {
 	it("propagates the error thrown by the job", async () => {
 
 		await expect(executor()(() => { throw new ExecutableError(); })).rejects.toThrow(ExecutableError);
+
+	});
+
+	it("installs process termination for uncaught exceptions where no handler is installed", async () => {
+
+		vi.spyOn(process, "listenerCount").mockReturnValue(0);
+
+		const on = vi.spyOn(process, "on").mockReturnValue(process);
+
+		try {
+
+			await executor()(noop);
+
+			expect(on).toHaveBeenCalledWith("uncaughtException", terminate);
+
+		} finally {
+
+			vi.restoreAllMocks();
+
+		}
+
+	});
+
+	it("leaves an installed handler for uncaught exceptions in charge", async () => {
+
+		vi.spyOn(process, "listenerCount").mockReturnValue(1);
+
+		const on = vi.spyOn(process, "on").mockReturnValue(process);
+
+		try {
+
+			await executor()(noop);
+
+			expect(on).not.toHaveBeenCalledWith("uncaughtException", expect.anything());
+
+		} finally {
+
+			vi.restoreAllMocks();
+
+		}
 
 	});
 
@@ -758,6 +803,38 @@ describe("isAsyncDisposable", () => {
 		expect(isAsyncDisposable(undefined)).toBe(false);
 		expect(isAsyncDisposable(null)).toBe(false);
 		expect(isAsyncDisposable("dispose")).toBe(false);
+
+	});
+
+});
+
+describe("terminate", () => {
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		vi.mocked(writeSync).mockClear();
+	});
+
+
+	it("prints the error and its stack to the standard error stream", async () => {
+
+		vi.spyOn(process, "exit").mockImplementation(() => undefined as never); // ;(cast) mocked exit returns
+
+		const error = new Error("failed job");
+
+		terminate(error);
+
+		expect(writeSync).toHaveBeenCalledWith(process.stderr.fd, `${inspect(error)}\n`);
+
+	});
+
+	it("exits with status 1", async () => {
+
+		const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never); // ;(cast) mocked exit returns
+
+		terminate(new Error("failed job"));
+
+		expect(exit).toHaveBeenCalledWith(1);
 
 	});
 

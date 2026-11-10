@@ -52,7 +52,7 @@ import { unique } from "@metreeca/core/arrays";
 import type { Awaitable } from "@metreeca/core/async";
 import { report } from "@metreeca/tape";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { isAsyncDisposable, isDisposable } from "./index.core.js";
+import { isAsyncDisposable, isDisposable, terminate } from "./index.core.js";
 
 
 /**
@@ -123,6 +123,13 @@ class Pending extends Error {
  * > errors are collected into an
  * > {@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AggregateError AggregateError},
  * > in the order they were raised.
+ *
+ * > [!NOTE]
+ * >
+ * > A failure left uncaught, for instance by an entry point awaiting an execution at the top level, terminates the
+ * > process with its message and stack trace only, without the source excerpt Node prints by default. The first
+ * > execution enables this behaviour for the whole process. A handler for uncaught exceptions installed before then
+ * > stays in charge instead, so an application keeps full control over how its own uncaught failures are handled.
  *
  * @see {@link https://tc39.es/proposal-explicit-resource-management/ ECMAScript Explicit Resource Management}
  */
@@ -237,6 +244,12 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 			throw new Error("nested job executions");
 		}
 
+		// installed once, as later executions find this handler in place; handlers installed elsewhere are left alone
+
+		if ( process.listenerCount("uncaughtException") === 0 ) {
+			process.on("uncaughtException", terminate);
+		}
+
 		const instances = new Map<Service<Defined>, undefined | Defined>();
 
 		// the job is wrapped, so that a synchronous throw is reported as a rejection; disposal is handled outside the
@@ -308,7 +321,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 		async function prepareBindings(): Promise<void> {
 
-			return [...aliases].reduce(async (previous, [ service, factory ]) => {
+			return [...aliases].reduce(async (previous, [service, factory]) => {
 
 				await previous;
 
@@ -375,7 +388,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 
 			const failure = await release();
 
-			throw failure === undefined ? error : new AggregateError([ error, failure ], "execution failed");
+			throw failure === undefined ? error : new AggregateError([error, failure], "execution failed");
 
 		}
 
@@ -399,7 +412,7 @@ export function executor(...bindings: readonly Binding<Defined>[]): Executor {
 				} catch ( error ) {
 
 					return suppressed === undefined ? error
-						: new AggregateError([ suppressed, error ], "disposal failed");
+						: new AggregateError([suppressed, error], "disposal failed");
 
 				}
 
